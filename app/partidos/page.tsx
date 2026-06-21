@@ -1,103 +1,88 @@
 import {
-  getEventosHoy,
-  getEventosHoyDeporte,
-  getEventsByLeague,
-  getEventsPastLeague,
-  LEAGUES,
-  formatearPartido,
-} from '@/lib/sportsApi'
+  getPartidosHoy,
+  getPartidosSemana,
+  getPartidosEnVivo,
+  getResultados,
+  getPartidosCompeticion,
+  COMPS,
+  formatearPartidoFD,
+} from '@/lib/footballApi'
 import PartidosClient from './PartidosClient'
 
 export const revalidate = 120
 
 export default async function Partidos() {
   const [
-    hoyFutbol,
-    hoyBasket,
-    proxPremier,
-    proxLaLiga,
-    proxSerieA,
-    proxBundes,
-    proxChampions,
-    proxLibertadores,
-    proxAmistosos,
-    proxCopaAm,
-    recientes,
+    hoy,
+    semana,
+    enVivo,
+    resultados,
+    mundial,
   ] = await Promise.all([
-    getEventosHoy(),
-    getEventosHoyDeporte('Basketball'),
-    getEventsByLeague(LEAGUES.premierLeague),
-    getEventsByLeague(LEAGUES.laLiga),
-    getEventsByLeague(LEAGUES.serieA),
-    getEventsByLeague(LEAGUES.bundesliga),
-    getEventsByLeague(LEAGUES.championsLeague),
-    getEventsByLeague(LEAGUES.libertadores),
-    getEventsByLeague(LEAGUES.amistosos),
-    getEventsByLeague(LEAGUES.copaAmerica),
-    getEventsPastLeague(LEAGUES.premierLeague),
+    getPartidosHoy(),
+    getPartidosSemana(),
+    getPartidosEnVivo(),
+    getResultados(),
+    getPartidosCompeticion(COMPS.mundial),
   ])
 
-  // Partidos de hoy — separar selecciones de clubes
-  const todosHoy = hoyFutbol
-    .map(formatearPartido)
-    .filter(Boolean)
+  const formatear = (arr: any[]) =>
+    arr.map(formatearPartidoFD).filter(Boolean)
 
-  const seleccionesHoy = todosHoy.filter((p: any) => p.esSeleccion)
-  const clubesHoy      = todosHoy.filter((p: any) => !p.esSeleccion)
+  const partidosHoy     = formatear(hoy)
+  const partidosVivos   = formatear(enVivo)
+  const partidosSemana  = formatear(semana)
+  const partidosMundial = formatear(mundial)
+  const partidosResult  = formatear(resultados)
 
-  // Proximos partidos de selecciones
-  const seleccionesProx = [
-    ...proxAmistosos,
-    ...proxCopaAm,
-  ].map(formatearPartido).filter(Boolean).slice(0, 16)
-
-  // Proximos de clubes
-  const clubesProx = [
-    ...proxPremier, ...proxLaLiga, ...proxSerieA,
-    ...proxBundes,  ...proxChampions, ...proxLibertadores,
-  ].map(formatearPartido).filter(Boolean).slice(0, 20)
-
-  // Basket de hoy
-  const basketHoy = hoyBasket
-    .map(formatearPartido)
-    .filter(Boolean)
-    .slice(0, 10)
+  const seleccionesHoy  = partidosHoy.filter((p: any) => p.esSeleccion)
+  const clubesHoy       = partidosHoy.filter((p: any) => !p.esSeleccion)
+  const seleccionesSem  = partidosSemana.filter((p: any) => p.esSeleccion)
 
   const categorias = [
     {
-      id: 'hoy',
-      label: '📅 Hoy',
-      color: '#EF4444',
-      partidos: todosHoy.slice(0, 20),
-      badge: todosHoy.length,
+      id:      'vivo',
+      label:   '🔴 En Vivo',
+      color:   '#EF4444',
+      partidos: partidosVivos,
+      badge:   partidosVivos.length,
     },
     {
-      id: 'selecciones',
-      label: '🌍 Selecciones',
-      color: '#F59E0B',
-      partidos: [...seleccionesHoy, ...seleccionesProx].slice(0, 20),
-      badge: seleccionesHoy.length + seleccionesProx.length,
+      id:      'hoy',
+      label:   '📅 Hoy',
+      color:   '#F59E0B',
+      partidos: partidosHoy,
+      badge:   partidosHoy.length,
     },
     {
-      id: 'clubes',
-      label: '⚽ Clubes',
-      color: '#00FF88',
-      partidos: [...clubesHoy, ...clubesProx].slice(0, 20),
-      badge: clubesHoy.length + clubesProx.length,
+      id:      'mundial',
+      label:   '🏆 Mundial 2026',
+      color:   '#F59E0B',
+      partidos: [...partidosMundial, ...seleccionesSem].slice(0, 20),
+      badge:   partidosMundial.length,
     },
     {
-      id: 'basket',
-      label: '🏀 Basket',
-      color: '#8B5CF6',
-      partidos: basketHoy,
-      badge: basketHoy.length,
+      id:      'selecciones',
+      label:   '🌍 Selecciones',
+      color:   '#3B82F6',
+      partidos: [...seleccionesHoy, ...seleccionesSem].slice(0, 20),
+      badge:   seleccionesHoy.length + seleccionesSem.length,
+    },
+    {
+      id:      'clubes',
+      label:   '⚽ Clubes',
+      color:   '#00FF88',
+      partidos: clubesHoy,
+      badge:   clubesHoy.length,
+    },
+    {
+      id:      'resultados',
+      label:   '✅ Resultados',
+      color:   '#6B7280',
+      partidos: partidosResult,
+      badge:   partidosResult.length,
     },
   ]
 
-  const resultadosRecientes = recientes
-    .map(formatearPartido)
-    .filter(Boolean)
-    .slice(0, 8)
-
-  return <PartidosClient categorias={categorias} resultados={resultadosRecientes} />
+  return <PartidosClient categorias={categorias} />
 }
