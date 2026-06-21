@@ -14,6 +14,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
+      <head>
+        <script
+          src="https://quge5.com/88/tag.min.js"
+          data-zone="252033"
+          async
+          data-cfasync="false"
+        />
+      </head>
       <body className={inter.className} style={{margin:0, background:'#0A0E1A'}}>
         <AuthProvider>
           <Monetag />
