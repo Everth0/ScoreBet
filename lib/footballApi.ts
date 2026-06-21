@@ -13,118 +13,212 @@ async function fetchFD(path: string) {
   } catch { return null }
 }
 
-// Codigos de competicion disponibles en plan free
 export const COMPS = {
-  mundial:    'WC',    // FIFA World Cup
-  champions:  'CL',   // UEFA Champions League
-  premier:    'PL',   // Premier League
-  laLiga:     'PD',   // Primera Division
-  serieA:     'SA',   // Serie A
-  bundesliga: 'BL1',  // Bundesliga
-  ligue1:     'FL1',  // Ligue 1
-  eurocopa:   'EC',   // European Championship
-  brasileirao:'BSA',  // Brasileirao
-  eredivisie: 'DED',  // Eredivisie
-  portugal:   'PPL',  // Primeira Liga
+  mundial:    'WC',
+  champions:  'CL',
+  premier:    'PL',
+  laLiga:     'PD',
+  serieA:     'SA',
+  bundesliga: 'BL1',
+  ligue1:     'FL1',
+  eurocopa:   'EC',
+  brasileirao:'BSA',
+  eredivisie: 'DED',
+  portugal:   'PPL',
 }
 
-// Partidos de hoy de todas las competiciones
 export async function getPartidosHoy() {
   const hoy = new Date().toISOString().split('T')[0]
   const data = await fetchFD(`/matches?date=${hoy}`)
   return data?.matches || []
 }
 
-// Partidos de esta semana
 export async function getPartidosSemana() {
-  const hoy    = new Date()
-  const fin    = new Date()
+  const hoy = new Date()
+  const fin  = new Date()
   fin.setDate(fin.getDate() + 7)
-  const desde  = hoy.toISOString().split('T')[0]
-  const hasta  = fin.toISOString().split('T')[0]
-  const data   = await fetchFD(`/matches?dateFrom=${desde}&dateTo=${hasta}`)
+  const desde = hoy.toISOString().split('T')[0]
+  const hasta = fin.toISOString().split('T')[0]
+  const data  = await fetchFD(`/matches?dateFrom=${desde}&dateTo=${hasta}`)
   return data?.matches || []
 }
 
-// Partidos de una competicion especifica
 export async function getPartidosCompeticion(codigo: string) {
   const data = await fetchFD(`/competitions/${codigo}/matches?status=SCHEDULED&limit=20`)
   return data?.matches || []
 }
 
-// Partidos en vivo
 export async function getPartidosEnVivo() {
   const data = await fetchFD(`/matches?status=IN_PLAY`)
   return data?.matches || []
 }
 
-// Partidos recientes (resultados)
 export async function getResultados() {
   const data = await fetchFD(`/matches?status=FINISHED&limit=20`)
   return data?.matches || []
 }
 
-// Standings de una competicion
-export async function getStandings(codigo: string) {
-  const data = await fetchFD(`/competitions/${codigo}/standings`)
-  return data?.standings || []
+const RANKING_FIFA: Record<string, number> = {
+  'Argentina':      1,
+  'France':         2,
+  'England':        3,
+  'Belgium':        4,
+  'Brazil':         5,
+  'Portugal':       6,
+  'Netherlands':    7,
+  'Spain':          8,
+  'Germany':        9,
+  'Croatia':        10,
+  'Italy':          11,
+  'Morocco':        12,
+  'Japan':          13,
+  'United States':  14,
+  'Senegal':        15,
+  'Uruguay':        16,
+  'Denmark':        17,
+  'Mexico':         18,
+  'Switzerland':    19,
+  'Colombia':       20,
+  'Ecuador':        21,
+  'Australia':      22,
+  'South Korea':    23,
+  'Tunisia':        24,
+  'Poland':         25,
+  'Serbia':         26,
+  'Chile':          27,
+  'Hungary':        28,
+  'Turkey':         29,
+  'Ukraine':        30,
+  'Sweden':         31,
+  'Austria':        32,
+  'Peru':           33,
+  'Czech Republic': 34,
+  'Cameroon':       35,
+  'Canada':         36,
+  'Costa Rica':     37,
+  'Ghana':          38,
+  'Iran':           39,
+  'Qatar':          40,
+  'Saudi Arabia':   55,
+  'Cape Verde':     65,
+  'Bolivia':        80,
+  'Panama':         70,
+  'Honduras':       75,
+  'Jamaica':        72,
+  'Cuba':           90,
 }
 
-export function generarCuotas(partido: any) {
-  const seed = parseInt((partido.id || 1000).toString().slice(-4)) / 9999
-  const homeRank = partido.homeTeam?.position || 5
-  const awayRank = partido.awayTeam?.position || 5
-  const diff = (awayRank - homeRank) / 20
+function getRanking(equipo: string): number {
+  for (const [nombre, rank] of Object.entries(RANKING_FIFA)) {
+    if (equipo.toLowerCase().includes(nombre.toLowerCase()) ||
+        nombre.toLowerCase().includes(equipo.toLowerCase())) {
+      return rank
+    }
+  }
+  return 50
+}
 
-  const local  = Math.max(1.15, parseFloat((1.50 + diff + seed * 0.5).toFixed(2)))
-  const empate = Math.max(2.60, parseFloat((3.10 + seed * 0.8).toFixed(2)))
-  const visita = Math.max(1.15, parseFloat((1.50 - diff + (1-seed) * 0.5).toFixed(2)))
+// Cuotas fijas segun diferencia de ranking
+// El equipo debil siempre tiene cuota 2.00 o 2.10
+// El favorito tiene cuota baja segun nivel
+export function generarCuotasRealistas(partido: any) {
+  const homeTeam = partido.homeTeam?.name || partido.homeTeam?.shortName || ''
+  const awayTeam = partido.awayTeam?.name || partido.awayTeam?.shortName || ''
+
+  const rankHome = getRanking(homeTeam)
+  const rankAway = getRanking(awayTeam)
+  const diff = rankAway - rankHome
+
+  // Cuota del debil siempre es 2.00 o 2.10
+  const cuotaDebil = [2.00, 2.10][Math.floor(Math.random() * 2)]
+
+  let local: number
+  let empate: number
+  let visita: number
+
+  if (diff >= 40) {
+    // Local muy superior — España vs Cabo Verde
+    local  = 1.15
+    empate = 4.50
+    visita = cuotaDebil        // 2.00 o 2.10
+  } else if (diff >= 25) {
+    // Local superior — Brazil vs Bolivia
+    local  = 1.25
+    empate = 4.00
+    visita = cuotaDebil        // 2.00 o 2.10
+  } else if (diff >= 15) {
+    // Local favorito — France vs Morocco
+    local  = 1.40
+    empate = 3.60
+    visita = cuotaDebil        // 2.00 o 2.10
+  } else if (diff >= 5) {
+    // Ligera ventaja local
+    local  = 1.65
+    empate = 3.20
+    visita = cuotaDebil        // 2.00 o 2.10
+  } else if (diff >= -5) {
+    // Muy parejo — Argentina vs France
+    local  = cuotaDebil        // 2.00 o 2.10
+    empate = 3.10
+    visita = cuotaDebil        // 2.00 o 2.10
+  } else if (diff >= -15) {
+    // Visita ligero favorito
+    local  = cuotaDebil        // 2.00 o 2.10
+    empate = 3.20
+    visita = 1.65
+  } else if (diff >= -25) {
+    // Visita favorita
+    local  = cuotaDebil        // 2.00 o 2.10
+    empate = 4.00
+    visita = 1.25
+  } else {
+    // Visita muy superior
+    local  = cuotaDebil        // 2.00 o 2.10
+    empate = 4.50
+    visita = 1.15
+  }
 
   return [local, empate, visita]
 }
 
 export function formatearPartidoFD(p: any) {
   if (!p) return null
-  const cuotas = generarCuotas(p)
-  const esVivo = p.status === 'IN_PLAY' || p.status === 'PAUSED'
+  const cuotas       = generarCuotasRealistas(p)
+  const esVivo       = p.status === 'IN_PLAY' || p.status === 'PAUSED'
   const esFinalizado = p.status === 'FINISHED'
 
-  // Detectar si es seleccion nacional
   const esSeleccion = (
-    p.competition?.code === 'WC'  ||
-    p.competition?.code === 'EC'  ||
+    p.competition?.code === 'WC' ||
+    p.competition?.code === 'EC' ||
     p.competition?.name?.includes('World Cup') ||
     p.competition?.name?.includes('European Championship') ||
     p.competition?.name?.includes('Nations League') ||
     p.competition?.name?.includes('Copa America') ||
-    p.competition?.type === 'CUP' && p.area?.code !== p.homeTeam?.area?.code
+    p.competition?.type === 'CUP'
   )
 
   return {
-    id:           String(p.id),
-    league:       p.competition?.name || 'Liga',
-    leagueCode:   p.competition?.code || '',
-    leagueFlag:   p.area?.flag || '',
-    leagueLogo:   p.competition?.emblem || '',
-    home:         p.homeTeam?.shortName || p.homeTeam?.name || 'Local',
-    homeFull:     p.homeTeam?.name || 'Local',
-    homeBadge:    p.homeTeam?.crest || '',
-    away:         p.awayTeam?.shortName || p.awayTeam?.name || 'Visitante',
-    awayFull:     p.awayTeam?.name || 'Visitante',
-    awayBadge:    p.awayTeam?.crest || '',
-    scoreHome:    esFinalizado || esVivo ? p.score?.fullTime?.home : null,
-    scoreAway:    esFinalizado || esVivo ? p.score?.fullTime?.away : null,
-    scoreHT:      p.score?.halfTime,
-    minuto:       p.minute || '',
-    time:         p.utcDate ? new Date(p.utcDate).toLocaleTimeString('es', {hour:'2-digit', minute:'2-digit', timeZone:'America/La_Paz'}) : '',
-    date:         p.utcDate ? new Date(p.utcDate).toLocaleDateString('es', {day:'2-digit', month:'short', timeZone:'America/La_Paz'}) : '',
-    utcDate:      p.utcDate || '',
-    status:       p.status || '',
-    live:         esVivo,
-    finalizado:   esFinalizado,
+    id:          String(p.id),
+    league:      p.competition?.name || 'Liga',
+    leagueCode:  p.competition?.code || '',
+    leagueLogo:  p.competition?.emblem || '',
+    home:        p.homeTeam?.shortName || p.homeTeam?.name || 'Local',
+    homeFull:    p.homeTeam?.name || 'Local',
+    homeBadge:   p.homeTeam?.crest || '',
+    away:        p.awayTeam?.shortName || p.awayTeam?.name || 'Visitante',
+    awayFull:    p.awayTeam?.name || 'Visitante',
+    awayBadge:   p.awayTeam?.crest || '',
+    scoreHome:   esFinalizado || esVivo ? p.score?.fullTime?.home : null,
+    scoreAway:   esFinalizado || esVivo ? p.score?.fullTime?.away : null,
+    minuto:      p.minute || '',
+    time:        p.utcDate ? new Date(p.utcDate).toLocaleTimeString('es', {hour:'2-digit', minute:'2-digit', timeZone:'America/La_Paz'}) : '',
+    date:        p.utcDate ? new Date(p.utcDate).toLocaleDateString('es', {day:'2-digit', month:'short', timeZone:'America/La_Paz'}) : '',
+    utcDate:     p.utcDate || '',
+    status:      p.status || '',
+    live:        esVivo,
+    finalizado:  esFinalizado,
     esSeleccion,
-    venue:        p.venue || '',
-    jornada:      p.matchday || '',
+    jornada:     p.matchday || '',
     odds: [
       { label:'1', val: cuotas[0] },
       { label:'X', val: cuotas[1] },
