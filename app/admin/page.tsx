@@ -46,7 +46,7 @@ export default function AdminPanel() {
     const usersSnap = await getDocs(
       query(collection(db, 'users'), orderBy('fechaRegistro', 'desc'), limit(100))
     )
-    const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+    const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() } as any))
     setUsuarios(users)
 
     // Calcular stats
