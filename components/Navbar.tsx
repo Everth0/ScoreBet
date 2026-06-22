@@ -5,14 +5,15 @@ import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
+import { useUser } from '@/context/UserContext'
 
 const links = [
-  { label:'Inicio',          href:'/',               special:false },
-  { label:'Partidos',        href:'/partidos',       special:false },
-  { label:'Mis Apuestas',    href:'/mis-apuestas',   special:false },
-  { label:'Recompensas',     href:'/recompensas',    special:false },
-  { label:'Referidos',       href:'/referidos',      special:false },
-  { label:'💰 Apuesta Real', href:'/apuestas-reales',special:true  },
+  { label:'Inicio',          href:'/',                special:false },
+  { label:'Partidos',        href:'/partidos',        special:false },
+  { label:'Mis Apuestas',    href:'/mis-apuestas',    special:false },
+  { label:'Recompensas',     href:'/recompensas',     special:false },
+  { label:'Referidos',       href:'/referidos',       special:false },
+  { label:'💰 Apuesta Real', href:'/apuestas-reales', special:true  },
 ]
 
 export default function Navbar({ puntosActuales }: { puntosActuales?: number }) {
@@ -20,6 +21,10 @@ export default function Navbar({ puntosActuales }: { puntosActuales?: number }) 
   const pathname        = usePathname()
   const router          = useRouter()
   const { user }        = useAuth()
+  const { userData }    = useUser()
+
+  // Usar puntos del contexto global o del prop
+  const pts = userData?.puntosActuales ?? puntosActuales ?? 0
 
   async function handleLogout() {
     await signOut(auth)
@@ -50,9 +55,10 @@ export default function Navbar({ puntosActuales }: { puntosActuales?: number }) 
         <div style={{display:'flex', alignItems:'center', gap:'8px', flexShrink:0}}>
           {user ? (
             <>
-              <Link href="/dashboard" style={{display:'flex', alignItems:'center', gap:'5px', background:'rgba(0,255,136,0.08)', border:'1px solid rgba(0,255,136,0.2)', borderRadius:'8px', padding:'6px 10px', textDecoration:'none'}}>
-                <span style={{fontSize:'12px'}}>⚡</span>
-                <span style={{fontFamily:'monospace', fontSize:'13px', fontWeight:700, color:'#00FF88'}}>{(puntosActuales ?? 0).toLocaleString()}</span>
+              <Link href="/dashboard" style={{display:'flex', alignItems:'center', gap:'5px', background:'rgba(0,255,136,0.08)', border:'1px solid rgba(0,255,136,0.2)', borderRadius:'8px', padding:'6px 12px', textDecoration:'none'}}>
+                <span style={{fontSize:'13px'}}>⚡</span>
+                <span style={{fontFamily:'monospace', fontSize:'14px', fontWeight:700, color:'#00FF88'}}>{pts.toLocaleString()}</span>
+                <span style={{fontSize:'11px', color:'#6B7280'}}>pts</span>
               </Link>
               <button onClick={handleLogout} style={{padding:'6px 12px', borderRadius:'8px', border:'1px solid #374151', color:'#9CA3AF', fontSize:'12px', cursor:'pointer', background:'transparent', fontFamily:'Inter, sans-serif'}}>
                 Salir
