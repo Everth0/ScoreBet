@@ -23,7 +23,6 @@ export default function Navbar({ puntosActuales }: { puntosActuales?: number }) 
   const { user }        = useAuth()
   const { userData }    = useUser()
 
-  // Usar puntos del contexto global o del prop
   const pts = userData?.puntosActuales ?? puntosActuales ?? 0
 
   async function handleLogout() {
@@ -60,6 +59,10 @@ export default function Navbar({ puntosActuales }: { puntosActuales?: number }) 
                 <span style={{fontFamily:'monospace', fontSize:'14px', fontWeight:700, color:'#00FF88'}}>{pts.toLocaleString()}</span>
                 <span style={{fontSize:'11px', color:'#6B7280'}}>pts</span>
               </Link>
+              {/* Avatar con link al perfil */}
+              <Link href="/perfil" style={{width:'36px', height:'36px', borderRadius:'50%', background:'linear-gradient(135deg,#00FF88,#3B82F6)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'14px', fontWeight:700, color:'#0A0E1A', textDecoration:'none', flexShrink:0}}>
+                {(userData?.nombre || user?.email || 'U')[0].toUpperCase()}
+              </Link>
               <button onClick={handleLogout} style={{padding:'6px 12px', borderRadius:'8px', border:'1px solid #374151', color:'#9CA3AF', fontSize:'12px', cursor:'pointer', background:'transparent', fontFamily:'Inter, sans-serif'}}>
                 Salir
               </button>
@@ -88,6 +91,10 @@ export default function Navbar({ puntosActuales }: { puntosActuales?: number }) 
               {l.label}
             </Link>
           ))}
+          <Link href="/perfil" onClick={() => setOpen(false)}
+            style={{padding:'12px 16px', borderRadius:'8px', fontSize:'14px', color:'#9CA3AF', textDecoration:'none'}}>
+            👤 Mi perfil
+          </Link>
           {!user ? (
             <div style={{display:'flex', gap:'10px', marginTop:'8px', paddingTop:'12px', borderTop:'1px solid rgba(255,255,255,0.07)'}}>
               <Link href="/login" onClick={() => setOpen(false)} style={{flex:1, padding:'12px', textAlign:'center', borderRadius:'8px', border:'1px solid #374151', color:'#F9FAFB', fontSize:'14px', textDecoration:'none'}}>Entrar</Link>
