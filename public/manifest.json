@@ -1,0 +1,37 @@
+{
+  "name": "ScoreBet — Apuesta. Acumula. Gana.",
+  "short_name": "ScoreBet",
+  "description": "Predice resultados deportivos y gana premios reales gratis.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0E1A",
+  "theme_color": "#00FF88",
+  "orientation": "portrait",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Partidos",
+      "url": "/partidos",
+      "description": "Ver partidos disponibles"
+    },
+    {
+      "name": "Dashboard",
+      "url": "/dashboard",
+      "description": "Ver mis puntos"
+    },
+    {
+      "name": "Recompensas",
+      "url": "/recompensas",
+      "description": "Canjear premios"
+    }
+  ],
+  "categories": ["sports", "entertainment", "games"]
+}
