@@ -195,16 +195,16 @@ export default function Home() {
               {label:'Referidos',        href:'/referidos'},
             ]},
             {title:'Empresa', links:[
-              {label:'Sobre nosotros', href:scorebet.space/sobre-nosotros'},
+              {label:'Sobre nosotros', href:'/sobre-nosotros'},
               {label:'Blog',           href:'/sobre-nosotros'},
               {label:'Afiliados',      href:'/apuestas-reales'},
-              {label:'Contacto',       href:scorebet.space/contacto'},
+              {label:'Contacto',       href:'/contacto'},
             ]},
             {title:'Legal', links:[
-              {label:'Terminos de uso',    href:scorebet.space/terminos'},
-              {label:'Privacidad',         href:scorebet.space/privacidad'},
-              {label:'Politica de puntos', href:scorebet.space/politica-puntos'},
-              {label:'Cookies',            href:scorebet.space/cookies'},
+              {label:'Terminos de uso',    href:'/terminos'},
+              {label:'Privacidad',         href:'/privacidad'},
+              {label:'Politica de puntos', href:'/politica-puntos'},
+              {label:'Cookies',            href:'/cookies'},
             ]},
           ].map(col => (
             <div key={col.title}>
