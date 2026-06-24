@@ -1,48 +1,46 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore'
+import { doc, updateDoc, increment, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
+import { useUser } from '@/context/UserContext'
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
 import { abrirAnuncio } from '@/lib/directlinks'
-import { guardarApuesta } from '@/lib/apuestas'
 
 const matches = [
-  { id:'1', league:'FIFA World Cup 2026', home:'Spain', away:'Saudi Arabia', homeIcon:'🇪🇸', awayIcon:'🇸🇦', time:'12:00', live:false, utcDate:'', odds:[{label:'1',val:1.15},{label:'X',val:4.50},{label:'2',val:2.00}] },
-  { id:'2', league:'FIFA World Cup 2026', home:'Belgium', away:'Iran', homeIcon:'🇧🇪', awayIcon:'🇮🇷', time:'15:00', live:false, utcDate:'', odds:[{label:'1',val:1.25},{label:'X',val:4.00},{label:'2',val:2.10}] },
-  { id:'3', league:'FIFA World Cup 2026', home:'Uruguay', away:'Cape Verde', homeIcon:'🇺🇾', awayIcon:'🇨🇻', time:'18:00', live:false, utcDate:'', odds:[{label:'1',val:1.40},{label:'X',val:3.80},{label:'2',val:2.00}] },
+  { id:'wc_esp_ksa', league:'FIFA World Cup 2026', home:'Spain',    away:'Saudi Arabia', homeIcon:'🇪🇸', awayIcon:'🇸🇦', time:'12:00', live:false, odds:[{label:'1',val:1.15},{label:'X',val:4.50},{label:'2',val:2.00}] },
+  { id:'wc_bel_iri', league:'FIFA World Cup 2026', home:'Belgium',  away:'Iran',         homeIcon:'🇧🇪', awayIcon:'🇮🇷', time:'15:00', live:false, odds:[{label:'1',val:1.25},{label:'X',val:4.00},{label:'2',val:2.10}] },
+  { id:'wc_uru_cpv', league:'FIFA World Cup 2026', home:'Uruguay',  away:'Cape Verde',   homeIcon:'🇺🇾', awayIcon:'🇨🇻', time:'18:00', live:false, odds:[{label:'1',val:1.40},{label:'X',val:3.80},{label:'2',val:2.00}] },
 ]
 
 const META = 50000
 
 export default function Dashboard() {
   const router = useRouter()
-  const [userData, setUserData]       = useState<any>(null)
+  const { userData, loading: userLoading } = useUser()
   const [loading, setLoading]         = useState(true)
+  const [user, setUser]               = useState<any>(null)
   const [betPoints, setBetPoints]     = useState('')
   const [selectedBet, setSelectedBet] = useState<any>(null)
   const [adLoading, setAdLoading]     = useState(false)
   const [adMsg, setAdMsg]             = useState('')
   const [betMsg, setBetMsg]           = useState('')
   const [showBetslip, setShowBetslip] = useState(false)
-  const [user, setUser]               = useState<any>(null)
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async u => {
+    const unsub = onAuthStateChanged(auth, u => {
       if (!u) { router.push('/login'); return }
       setUser(u)
-      const snap = await getDoc(doc(db, 'users', u.uid))
-      if (snap.exists()) setUserData({ uid: u.uid, ...snap.data() })
       setLoading(false)
     })
     return () => unsub()
   }, [])
 
   async function verAnuncio() {
-    if (!userData) return
-    if (userData.adsHoy >= 10) {
+    if (!userData || !user) return
+    if ((userData.adsHoy || 0) >= 10) {
       setAdMsg('Ya viste los 10 anuncios de hoy.')
       return
     }
@@ -50,63 +48,66 @@ export default function Dashboard() {
     setAdMsg('')
     abrirAnuncio()
     await new Promise(r => setTimeout(r, 5000))
-    const ref = doc(db, 'users', userData.uid)
-    await updateDoc(ref, {
+    await updateDoc(doc(db, 'users', user.uid), {
       puntosActuales:  increment(50),
       puntosHistorico: increment(50),
       adsHoy:          increment(1),
-      ultimoAnuncio:   new Date(),
+      ultimoAnuncio:   serverTimestamp(),
     })
-    setUserData((prev: any) => ({
-      ...prev,
-      puntosActuales:  prev.puntosActuales + 50,
-      puntosHistorico: prev.puntosHistorico + 50,
-      adsHoy:          prev.adsHoy + 1,
-    }))
     setAdLoading(false)
-    setAdMsg(`+50 puntos! (${userData.adsHoy + 1}/10 hoy)`)
+    setAdMsg(`+50 puntos! (${(userData.adsHoy||0) + 1}/10 hoy)`)
   }
 
   async function confirmarApuesta() {
     if (!userData || !user || !selectedBet || !betPoints) return
     const pts = Number(betPoints)
-    if (pts < 100) { setBetMsg('Minimo 100 puntos.'); return }
-    if (pts > userData.puntosActuales) { setBetMsg('No tienes suficientes puntos.'); return }
+    if (pts < 100) { setBetMsg('⚠️ Minimo 100 puntos.'); return }
+    if (pts > (userData.puntosActuales || 0)) { setBetMsg('⚠️ No tienes suficientes puntos.'); return }
 
     try {
-      // Guardar apuesta en Firestore
       const partido = matches.find(m => m.id === selectedBet.matchId)
       if (!partido) return
 
-      await guardarApuesta(
-        userData.uid,
-        { id: partido.id, home: partido.home, away: partido.away, league: partido.league, utcDate: partido.utcDate },
-        `${selectedBet.label === '1' ? `Gana ${partido.home}` : selectedBet.label === '2' ? `Gana ${partido.away}` : 'Empate'} (${selectedBet.label}) @ ${selectedBet.val}`,
-        selectedBet.val,
-        pts
-      )
+      const seleccionLabel = selectedBet.label === '1'
+        ? `Gana ${partido.home}`
+        : selectedBet.label === '2'
+          ? `Gana ${partido.away}`
+          : 'Empate'
+
+      // Guardar apuesta en Firestore
+      await addDoc(collection(db, 'apuestas'), {
+        userId:           user.uid,
+        partidoId:        partido.id,
+        partido:          `${partido.home} vs ${partido.away}`,
+        liga:             partido.league,
+        seleccion:        `${seleccionLabel} (${selectedBet.label}) @ ${selectedBet.val}`,
+        cuota:            selectedBet.val,
+        puntosApostados:  pts,
+        gananciasPosibles: Math.round(pts * selectedBet.val),
+        estado:           'pendiente',
+        fechaApuesta:     serverTimestamp(),
+      })
 
       // Descontar puntos
-      await updateDoc(doc(db, 'users', userData.uid), {
+      await updateDoc(doc(db, 'users', user.uid), {
         puntosActuales: increment(-pts),
       })
-      setUserData((prev: any) => ({ ...prev, puntosActuales: prev.puntosActuales - pts }))
 
-      // Abrir anuncio al apostar
+      // Abrir anuncio
       abrirAnuncio()
 
       setSelectedBet(null)
       setBetPoints('')
       setShowBetslip(false)
-      const ganancia = Math.round(pts * selectedBet.val)
-      setBetMsg(`✅ Apuesta guardada! Ganancia posible: ${ganancia.toLocaleString()} pts`)
-      setTimeout(() => setBetMsg(''), 4000)
-    } catch {
-      setBetMsg('Error al guardar apuesta. Intenta de nuevo.')
+      setBetMsg(`✅ Apuesta registrada! Ganancia posible: ${Math.round(pts * selectedBet.val).toLocaleString()} pts`)
+      setTimeout(() => setBetMsg(''), 5000)
+
+    } catch (e: any) {
+      setBetMsg('❌ Error al guardar apuesta: ' + e.message)
     }
   }
 
-  if (loading) return (
+  if (loading || userLoading) return (
     <main style={{background:'#0A0E1A', minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', color:'#F9FAFB', fontFamily:'Inter, sans-serif'}}>
       <div style={{textAlign:'center'}}>
         <div style={{fontFamily:'Rajdhani, sans-serif', fontSize:'28px', fontWeight:700}}>SCORE<span style={{color:'#00FF88'}}>BET</span></div>
@@ -129,7 +130,12 @@ export default function Dashboard() {
               {matches.find(m => m.id === selectedBet.matchId)?.home} vs {matches.find(m => m.id === selectedBet.matchId)?.away}
             </div>
             <div style={{fontSize:'12px', color:'#9CA3AF', marginBottom:'10px'}}>
-              {selectedBet.label === '1' ? `Gana ${matches.find(m => m.id === selectedBet.matchId)?.home}` : selectedBet.label === '2' ? `Gana ${matches.find(m => m.id === selectedBet.matchId)?.away}` : 'Empate'}
+              {selectedBet.label === '1'
+                ? `Gana ${matches.find(m => m.id === selectedBet.matchId)?.home}`
+                : selectedBet.label === '2'
+                  ? `Gana ${matches.find(m => m.id === selectedBet.matchId)?.away}`
+                  : 'Empate'
+              }
             </div>
             <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
               <span style={{fontSize:'12px', color:'#9CA3AF'}}>Cuota:</span>
@@ -141,6 +147,7 @@ export default function Dashboard() {
           <input type="number" placeholder="Minimo 100 pts" value={betPoints} onChange={e => setBetPoints(e.target.value)}
             style={{width:'100%', background:'#0F1520', border:'1px solid #374151', borderRadius:'8px', padding:'13px', color:'#F9FAFB', fontSize:'15px', fontFamily:'JetBrains Mono, monospace', outline:'none', marginBottom:'10px'}}
           />
+
           <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'6px', marginBottom:'14px'}}>
             {[500,1000,2000,5000].map(v => (
               <button key={v} onClick={() => setBetPoints(String(Math.min(v, pts)))}
@@ -241,7 +248,7 @@ export default function Dashboard() {
               <div style={{height:'100%', width:`${progreso}%`, background:'linear-gradient(90deg,#00FF88,#3B82F6)', borderRadius:'999px', transition:'width .5s'}}/>
             </div>
             <div style={{fontSize:'11px', color:'#4B5563', marginTop:'5px'}}>
-              {pts >= META ? '🎉 Puedes canjear tu primer premio!' : `Faltan ${(META-pts).toLocaleString()} pts para $5`}
+              {pts >= META ? '🎉 Puedes canjear!' : `Faltan ${(META-pts).toLocaleString()} pts para $5`}
             </div>
           </div>
         </div>
@@ -249,10 +256,10 @@ export default function Dashboard() {
         {/* STATS */}
         <div style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'10px', padding:'16px 20px'}}>
           {[
-            { label:'Puntos',    val:pts.toLocaleString(),                             icon:'⚡', color:'#00FF88' },
-            { label:'Historico', val:(userData?.puntosHistorico||0).toLocaleString(),  icon:'📈', color:'#3B82F6' },
-            { label:'Ads hoy',   val:`${adsHoy}/10`,                                  icon:'📺', color:'#F59E0B' },
-            { label:'Referidos', val:(userData?.totalReferidos||0).toString(),         icon:'👥', color:'#8B5CF6' },
+            { label:'Puntos',    val:pts.toLocaleString(),                            icon:'⚡', color:'#00FF88' },
+            { label:'Historico', val:(userData?.puntosHistorico||0).toLocaleString(), icon:'📈', color:'#3B82F6' },
+            { label:'Ads hoy',   val:`${adsHoy}/10`,                                 icon:'📺', color:'#F59E0B' },
+            { label:'Referidos', val:(userData?.totalReferidos||0).toString(),        icon:'👥', color:'#8B5CF6' },
           ].map(s => (
             <div key={s.label} style={{background:'#111827', border:'1px solid rgba(255,255,255,0.06)', borderRadius:'12px', padding:'14px', textAlign:'center'}}>
               <div style={{fontSize:'20px', marginBottom:'6px'}}>{s.icon}</div>
@@ -294,7 +301,7 @@ export default function Dashboard() {
             {/* ACCESOS RAPIDOS */}
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
               <Link href="/mis-apuestas" style={{textDecoration:'none'}}>
-                <div style={{background:'#111827', border:'1px solid rgba(59,130,246,0.2)', borderRadius:'12px', padding:'16px', display:'flex', alignItems:'center', gap:'12px', cursor:'pointer', transition:'all .2s'}}>
+                <div style={{background:'#111827', border:'1px solid rgba(59,130,246,0.2)', borderRadius:'12px', padding:'16px', display:'flex', alignItems:'center', gap:'12px', cursor:'pointer'}}>
                   <span style={{fontSize:'24px'}}>🎯</span>
                   <div>
                     <div style={{fontSize:'13px', fontWeight:600, color:'#3B82F6'}}>Mis apuestas</div>
@@ -303,7 +310,7 @@ export default function Dashboard() {
                 </div>
               </Link>
               <Link href="/apuestas-reales" style={{textDecoration:'none'}}>
-                <div style={{background:'#111827', border:'1px solid rgba(245,158,11,0.2)', borderRadius:'12px', padding:'16px', display:'flex', alignItems:'center', gap:'12px', cursor:'pointer', transition:'all .2s'}}>
+                <div style={{background:'#111827', border:'1px solid rgba(245,158,11,0.2)', borderRadius:'12px', padding:'16px', display:'flex', alignItems:'center', gap:'12px', cursor:'pointer'}}>
                   <span style={{fontSize:'24px'}}>💰</span>
                   <div>
                     <div style={{fontSize:'13px', fontWeight:600, color:'#F59E0B'}}>Apuesta real</div>
