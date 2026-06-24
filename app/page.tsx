@@ -201,12 +201,11 @@ export default function Home() {
               {label:'Contacto',       href:'/contacto'},
             ]},
             {title:'Legal', links:[
-              {label:'Terminos de uso',    href:'/terminos'},
-              {label:'Privacidad',         href:'/privacidad'},
-              {label:'Politica de puntos', href:'/politica-puntos'},
-              {label:'Cookies',            href:'/cookies'},
+              {label:'Terminos de uso',     href:'/terminos'},
+              {label:'Privacidad',          href:'/privacidad'},
+              {label:'Politica de puntos',  href:'/politica-puntos'},
+              {label:'Cookies',             href:'/cookies'},
             ]},
-          ].map(col => (
             <div key={col.title}>
               <div style={{fontSize:'11px', fontWeight:700, letterSpacing:'1.5px', textTransform:'uppercase', color:'#F9FAFB', marginBottom:'16px'}}>{col.title}</div>
               {col.links.map(l => (
