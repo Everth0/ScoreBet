@@ -188,13 +188,30 @@ export default function Home() {
             <p style={{fontSize:'13px', color:'#6B7280', lineHeight:1.7}}>La plataforma de predicciones deportivas donde ganar es gratis.</p>
           </div>
           {[
-            {title:'Plataforma', links:['Partidos en vivo','Mis apuestas','Recompensas','Referidos']},
-            {title:'Empresa',    links:['Sobre nosotros','Blog','Afiliados','Contacto']},
-            {title:'Legal',      links:['Terminos de uso','Privacidad','Politica de puntos','Cookies']},
+            {title:'Plataforma', links:[
+              {label:'Partidos en vivo', href:'/partidos'},
+              {label:'Mis apuestas',     href:'/mis-apuestas'},
+              {label:'Recompensas',      href:'/recompensas'},
+              {label:'Referidos',        href:'/referidos'},
+            ]},
+            {title:'Empresa', links:[
+              {label:'Sobre nosotros', href:scorebet.space/sobre-nosotros'},
+              {label:'Blog',           href:'/sobre-nosotros'},
+              {label:'Afiliados',      href:'/apuestas-reales'},
+              {label:'Contacto',       href:scorebet.space/contacto'},
+            ]},
+            {title:'Legal', links:[
+              {label:'Terminos de uso',    href:scorebet.space/terminos'},
+              {label:'Privacidad',         href:scorebet.space/privacidad'},
+              {label:'Politica de puntos', href:scorebet.space/politica-puntos'},
+              {label:'Cookies',            href:scorebet.space/cookies'},
+            ]},
           ].map(col => (
             <div key={col.title}>
               <div style={{fontSize:'11px', fontWeight:700, letterSpacing:'1.5px', textTransform:'uppercase', color:'#F9FAFB', marginBottom:'16px'}}>{col.title}</div>
               {col.links.map(l => (
+                <a key={l.label} href={l.href} style={{display:'block', fontSize:'13px', color:'#6B7280', textDecoration:'none', marginBottom:'10px'}}>{l.label}</a>
+              ))}
                 <a key={l} href="#" style={{display:'block', fontSize:'13px', color:'#6B7280', textDecoration:'none', marginBottom:'10px'}}>{l}</a>
               ))}
             </div>
