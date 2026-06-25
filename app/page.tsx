@@ -182,71 +182,77 @@ export default function Home() {
         <div style={{background:'rgba(59,130,246,.06)', border:'1px solid rgba(59,130,246,.15)', borderRadius:'10px', padding:'14px 18px', fontSize:'11px', color:'#6B7280', marginBottom:'48px', lineHeight:1.7}}>
           ScoreBet es una plataforma de entretenimiento con puntos virtuales. No implica dinero real ni apuestas reales. Solo mayores de 13 anos.
         </div>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:'40px', marginBottom:'40px'}}>
+       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:'40px', marginBottom:'40px'}}>
           <div>
-            <div style={{fontFamily:'Rajdhani, sans-serif', fontWeight:700, fontSize:'22px', letterSpacing:'1px', marginBottom:'12px'}}>SCORE<span style={{color:'#00FF88'}}>BET</span></div>
-            <p style={{fontSize:'13px', color:'#6B7280', lineHeight:1.7}}>La plataforma de predicciones deportivas donde ganar es gratis.</p>
+            <div style={{fontFamily:'Rajdhani, sans-serif', fontWeight:700, fontSize:'22px', letterSpacing:'1px', marginBottom:'12px'}}>
+              SCORE<span style={{color:'#00FF88'}}>BET</span>
+            </div>
+            <p style={{fontSize:'13px', color:'#6B7280', lineHeight:1.7}}>
+              La plataforma de predicciones deportivas donde ganar es gratis.
+            </p>
           </div>
+        
           {[
-  {
-    title: 'Plataforma',
-    links: [
-      { label: 'Partidos en vivo', href: '/partidos' },
-      { label: 'Mis apuestas', href: '/mis-apuestas' },
-      { label: 'Recompensas', href: '/recompensas' },
-      { label: 'Referidos', href: '/referidos' },
-    ],
-  },
-  {
-    title: 'Empresa',
-    links: [
-      { label: 'Sobre nosotros', href: '/sobre-nosotros' },
-      { label: 'Blog', href: '/sobre-nosotros' },
-      { label: 'Afiliados', href: '/apuestas-reales' },
-      { label: 'Contacto', href: '/contacto' },
-    ],
-  },
-  {
-    title: 'Legal',
-    links: [
-      { label: 'Terminos de uso', href: '/terminos' },
-      { label: 'Privacidad', href: '/privacidad' },
-      { label: 'Politica de puntos', href: '/politica-puntos' },
-      { label: 'Cookies', href: '/cookies' },
-    ],
-  },
-].map((col) => (
-  <div key={col.title}>
-    <div
-      style={{
-        fontSize: '11px',
-        fontWeight: 700,
-        letterSpacing: '1.5px',
-        textTransform: 'uppercase',
-        color: '#F9FAFB',
-        marginBottom: '16px',
-      }}
-    >
-      {col.title}
-    </div>
+            {
+              title: 'Plataforma',
+              links: [
+                { label: 'Partidos en vivo', href: '/partidos' },
+                { label: 'Mis apuestas', href: '/mis-apuestas' },
+                { label: 'Recompensas', href: '/recompensas' },
+                { label: 'Referidos', href: '/referidos' },
+              ],
+            },
+            {
+              title: 'Empresa',
+              links: [
+                { label: 'Sobre nosotros', href: '/sobre-nosotros' },
+                { label: 'Blog', href: '/sobre-nosotros' },
+                { label: 'Afiliados', href: '/apuestas-reales' },
+                { label: 'Contacto', href: '/contacto' },
+              ],
+            },
+            {
+              title: 'Legal',
+              links: [
+                { label: 'Terminos de uso', href: '/terminos' },
+                { label: 'Privacidad', href: '/privacidad' },
+                { label: 'Politica de puntos', href: '/politica-puntos' },
+                { label: 'Cookies', href: '/cookies' },
+              ],
+            },
+          ].map((col) => (
+            <div key={col.title}>
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  letterSpacing: '1.5px',
+                  textTransform: 'uppercase',
+                  color: '#F9FAFB',
+                  marginBottom: '16px',
+                }}
+              >
+                {col.title}
+              </div>
 
-    {col.links.map((l) => (
-      <a
-        key={l.label}
-        href={l.href}
-        style={{
-          display: 'block',
-          fontSize: '13px',
-          color: '#6B7280',
-          textDecoration: 'none',
-          marginBottom: '10px',
-        }}
-      >
-        {l.label}
-      </a>
-    ))}
-  </div>
-))
+              {col.links.map((l) => (
+                <a
+                  key={l.label}
+                  href={l.href}
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    color: '#6B7280',
+                    textDecoration: 'none',
+                    marginBottom: '10px',
+                  }}
+                >
+                  {l.label}
+                </a>
+              ))}
+            </div>
+          ))}
+        </div>
       </footer>
     </main>
   )
