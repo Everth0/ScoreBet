@@ -203,12 +203,12 @@ export default function Home() {
               ],
             },
             {
-              title: 'Empresa',
+             title: 'Empresa',
               links: [
                 { label: 'Sobre nosotros', href: '/sobre-nosotros' },
-                { label: 'Blog', href: '/sobre-nosotros' },
-                { label: 'Afiliados', href: '/apuestas-reales' },
-                { label: 'Contacto', href: '/contacto' },
+                { label: 'Blog',           href: '/sobre-nosotros' },
+                { label: 'Afiliados',      href: '/apuestas-reales' },
+                { label: 'Contacto',       href: '/contacto' },
               ],
             },
             {
