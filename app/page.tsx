@@ -188,38 +188,65 @@ export default function Home() {
             <p style={{fontSize:'13px', color:'#6B7280', lineHeight:1.7}}>La plataforma de predicciones deportivas donde ganar es gratis.</p>
           </div>
           {[
-            {title:'Plataforma', links:[
-              {label:'Partidos en vivo', href:'/partidos'},
-              {label:'Mis apuestas',     href:'/mis-apuestas'},
-              {label:'Recompensas',      href:'/recompensas'},
-              {label:'Referidos',        href:'/referidos'},
-            ]},
-            {title:'Empresa', links:[
-              {label:'Sobre nosotros', href:'/sobre-nosotros'},
-              {label:'Blog',           href:'/sobre-nosotros'},
-              {label:'Afiliados',      href:'/apuestas-reales'},
-              {label:'Contacto',       href:'/contacto'},
-            ]},
-            {title:'Legal', links:[
-              {label:'Terminos de uso',     href:'/terminos'},
-              {label:'Privacidad',          href:'/privacidad'},
-              {label:'Politica de puntos',  href:'/politica-puntos'},
-              {label:'Cookies',             href:'/cookies'},
-            ]},
-            <div key={col.title}>
-              <div style={{fontSize:'11px', fontWeight:700, letterSpacing:'1.5px', textTransform:'uppercase', color:'#F9FAFB', marginBottom:'16px'}}>{col.title}</div>
-              {col.links.map(l => (
-                <a key={l.label} href={l.href} style={{display:'block', fontSize:'13px', color:'#6B7280', textDecoration:'none', marginBottom:'10px'}}>{l.label}</a>
-              ))}
-                <a key={l} href="#" style={{display:'block', fontSize:'13px', color:'#6B7280', textDecoration:'none', marginBottom:'10px'}}>{l}</a>
-              ))}
-            </div>
-          ))}
-        </div>
-        <div style={{borderTop:'1px solid rgba(255,255,255,0.05)', paddingTop:'24px', display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:'12px', fontSize:'12px', color:'#4B5563'}}>
-          <span>2025 ScoreBet. Todos los derechos reservados.</span>
-          <span>Hecho con para fanaticos del deporte</span>
-        </div>
+  {
+    title: 'Plataforma',
+    links: [
+      { label: 'Partidos en vivo', href: '/partidos' },
+      { label: 'Mis apuestas', href: '/mis-apuestas' },
+      { label: 'Recompensas', href: '/recompensas' },
+      { label: 'Referidos', href: '/referidos' },
+    ],
+  },
+  {
+    title: 'Empresa',
+    links: [
+      { label: 'Sobre nosotros', href: '/sobre-nosotros' },
+      { label: 'Blog', href: '/sobre-nosotros' },
+      { label: 'Afiliados', href: '/apuestas-reales' },
+      { label: 'Contacto', href: '/contacto' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { label: 'Terminos de uso', href: '/terminos' },
+      { label: 'Privacidad', href: '/privacidad' },
+      { label: 'Politica de puntos', href: '/politica-puntos' },
+      { label: 'Cookies', href: '/cookies' },
+    ],
+  },
+].map((col) => (
+  <div key={col.title}>
+    <div
+      style={{
+        fontSize: '11px',
+        fontWeight: 700,
+        letterSpacing: '1.5px',
+        textTransform: 'uppercase',
+        color: '#F9FAFB',
+        marginBottom: '16px',
+      }}
+    >
+      {col.title}
+    </div>
+
+    {col.links.map((l) => (
+      <a
+        key={l.label}
+        href={l.href}
+        style={{
+          display: 'block',
+          fontSize: '13px',
+          color: '#6B7280',
+          textDecoration: 'none',
+          marginBottom: '10px',
+        }}
+      >
+        {l.label}
+      </a>
+    ))}
+  </div>
+))
       </footer>
     </main>
   )

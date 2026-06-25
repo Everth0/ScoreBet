@@ -1,6 +1,10 @@
 'use client'
 import Navbar from '@/components/Navbar'
 import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { addDoc, collection, updateDoc77, doc, increment, serverTimestamp } from 'firebase/firestore'
+import { db, auth } from '@/lib/firebase'
+import { onAuthStateChanged } from 'firebase/auth'
 
 export default function PartidosClient({ categorias }: { categorias: any[] }) {
   const [tabActiva, setTabActiva] = useState(() => {
@@ -10,8 +14,17 @@ export default function PartidosClient({ categorias }: { categorias: any[] }) {
   const [selectedBet, setSelectedBet] = useState<any>(null)
   const [betPoints, setBetPoints]     = useState('')
   const [msg, setMsg]                 = useState('')
+  const [authUser, setAuthUser]       = useState<any>(null)
+  const [userData, setUserData]       = useState<any>(null)
   const [showBetslip, setShowBetslip] = useState(false)
+  useEffect(() => {
+  const unsub = onAuthStateChanged(auth, (user) => {
+    setAuthUser(user)
+  })
 
+  return () => unsub()
+}, [])
+  
   const catActual = categorias.find(c => c.id === tabActiva)
 
   function seleccionarApuesta(apuesta: any) {
@@ -24,20 +37,57 @@ export default function PartidosClient({ categorias }: { categorias: any[] }) {
     }
   }
 
-  function confirmar() {
-    if (!betPoints || Number(betPoints) < 100) {
-      setMsg('Minimo 100 puntos')
-      return
-    }
-    const ganancia = Math.round(Number(betPoints) * selectedBet.oddVal)
-    setMsg(`✅ Apuesta registrada! Ganancia posible: ${ganancia.toLocaleString()} pts`)
+async function confirmar() {
+  if (!authUser || !selectedBet || !betPoints) {
+    setMsg('Falta información')
+    return
+  }
+
+  const pts = Number(betPoints)
+
+  if (pts < 100) {
+    setMsg('Minimo 100 puntos')
+    return
+  }
+
+  if (pts > (userData?.puntosActuales || 0)) {
+    setMsg('No tienes suficientes puntos')
+    return
+  }
+
+  const ganancia = Math.round(pts * selectedBet.val)
+
+  try {
+    setMsg('⏳ Guardando apuesta...')
+
+    await addDoc(collection(db, 'apuestas'), {
+      userId: authUser.uid,
+      partidoId: selectedBet.matchId,
+      seleccion: selectedBet.label,
+      cuota: selectedBet.val,
+      puntosApostados: pts,
+      gananciasPosibles: ganancia,
+      estado: 'pendiente',
+      fechaApuesta: serverTimestamp(),
+    })
+
+    await updateDoc(doc(db, 'users', authUser.uid), {
+      puntosActuales: increment(-pts),
+    })
+
+    setMsg(`✅ Apuesta guardada! Ganancia posible: ${ganancia}`)
+
     setTimeout(() => {
       setSelectedBet(null)
       setBetPoints('')
       setMsg('')
       setShowBetslip(false)
-    }, 2500)
+    }, 2000)
+
+  } catch (e: any) {
+    setMsg('Error: ' + e.message)
   }
+}
 
   const BetslipContent = () => (
     <div style={{display:'flex', flexDirection:'column', height:'100%'}}>
