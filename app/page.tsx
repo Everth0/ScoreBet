@@ -81,7 +81,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PARTIDOS - PREVIEW */}
+      {/* PARTIDOSS - PREVIEW */}
       <section style={{padding:'80px 40px', background:'#0F1520'}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'40px', flexWrap:'wrap', gap:'16px'}}>
           <div>
