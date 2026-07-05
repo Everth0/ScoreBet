@@ -1,7 +1,7 @@
 'use client'
 import Navbar from '@/components/Navbar'
 import { useEffect, useState } from 'react'
-import { addDoc, collection, updateDoc77, doc, increment, serverTimestamp } from 'firebase/firestore'
+import { addDoc, collection, updateDoc, doc, increment, serverTimestamp } from 'firebase/firestore'
 import { db, auth } from '@/lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 
