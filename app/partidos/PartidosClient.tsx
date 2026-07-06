@@ -59,11 +59,13 @@ async function confirmar() {
 
   try {
     setMsg('⏳ Guardando apuesta...')
-
+   
     await addDoc(collection(db, 'apuestas'), {
       userId: authUser.uid,
       partidoId: selectedBet.matchId,
-      seleccion: selectedBet.label,
+      partido: `${selectedBet.home} vs ${selectedBet.away}`,
+      liga: selectedBet.league || 'Liga',
+      seleccion: selectedBet.oddLabel || selectedBet.label || 'N/A',
       cuota: selectedBet.val,
       puntosApostados: pts,
       gananciasPosibles: ganancia,
