@@ -1,4 +1,5 @@
 'use client'
+import { useUser } from '@/context/UserContext'
 import Navbar from '@/components/Navbar'
 import { useEffect, useState } from 'react'
 import { addDoc, collection, updateDoc, doc, increment, serverTimestamp } from 'firebase/firestore'
@@ -7,6 +8,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 
 export default function PartidosClient({ categorias }: { categorias: any[] }) {
   const [tabActiva, setTabActiva] = useState(() => {
+  const { userData } = useUser()
     const vivo = categorias.find(c => c.id === 'vivo')
     return vivo && vivo.partidos.length > 0 ? 'vivo' : 'hoy'
   })
@@ -14,7 +16,6 @@ export default function PartidosClient({ categorias }: { categorias: any[] }) {
   const [betPoints, setBetPoints]     = useState('')
   const [msg, setMsg]                 = useState('')
   const [authUser, setAuthUser]       = useState<any>(null)
-  const [userData, setUserData]       = useState<any>(null)
   const [showBetslip, setShowBetslip] = useState(false)
   useEffect(() => {
   const unsub = onAuthStateChanged(auth, (user) => {
@@ -49,7 +50,7 @@ async function confirmar() {
     return
   }
 
-  if (pts > (userData?.puntosActuales || 0)) {
+  if (Number(betPoints) > (userData?.puntosActuales || 0)) {
     setMsg('No tienes suficientes puntos')
     return
   }
