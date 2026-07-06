@@ -7,8 +7,8 @@ import { db, auth } from '@/lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 
 export default function PartidosClient({ categorias }: { categorias: any[] }) {
-  const [tabActiva, setTabActiva] = useState(() => {
   const { userData } = useUser()
+  const [tabActiva, setTabActiva] = useState(() => {
     const vivo = categorias.find(c => c.id === 'vivo')
     return vivo && vivo.partidos.length > 0 ? 'vivo' : 'hoy'
   })
