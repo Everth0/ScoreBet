@@ -55,7 +55,7 @@ async function confirmar() {
     return
   }
 
-  const ganancia = Math.round(pts * selectedBet.val)
+  const ganancia = Math.round(pts * selectedBet.oddVal || selectedBet.val || 1)
 
   try {
     setMsg('⏳ Guardando apuesta...')
@@ -66,7 +66,7 @@ async function confirmar() {
       partido: `${selectedBet.home} vs ${selectedBet.away}`,
       liga: selectedBet.league || 'Liga',
       seleccion: selectedBet.oddLabel || selectedBet.label || 'N/A',
-      cuota: selectedBet.val,
+      cuota: selectedBet.oddVal || selectedBet.val || 1,
       puntosApostados: pts,
       gananciasPosibles: ganancia,
       estado: 'pendiente',
