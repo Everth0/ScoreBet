@@ -6,6 +6,8 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
 import Navbar from '@/components/Navbar'
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL!;
+
 export default function Referidos() {
   const router = useRouter()
   const [userData, setUserData] = useState<any>(null)
@@ -31,7 +33,7 @@ export default function Referidos() {
 
   function copiarLink() {
     if (!userData) return
-    const link = `https://score-bet.vercel.app/login?ref=${userData.uid.slice(0,8).toUpperCase()}`
+    const link = `${APP_URL}/login?ref=${userData.uid.slice(0,8).toUpperCase()}`
     navigator.clipboard.writeText(link)
     setCopiado(true)
     setTimeout(() => setCopiado(false), 2000)
@@ -136,16 +138,20 @@ export default function Referidos() {
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
               {[
                 { icon:'💬', name:'WhatsApp', color:'#25D366', bg:'rgba(37,211,102,0.08)', border:'rgba(37,211,102,0.2)',
-                  url:`https://wa.me/?text=Únete a ScoreBet y gana premios reales apostando puntos gratis. Usa mi codigo: ${codigo} 🎁 score-bet.vercel.app` },
+                  url: `https://wa.me/?text=${encodeURIComponent
+`Únete a ScoreBet y gana premios reales apostando puntos gratis. Usa mi código: ${codigo} 🎁 ${APP_URL}/login?ref=${codigo}`)}`
                 { icon:'📘', name:'Facebook', color:'#1877F2', bg:'rgba(24,119,242,0.08)', border:'rgba(24,119,242,0.2)',
-                  url:`https://www.facebook.com/sharer/sharer.php?u=score-bet.vercel.app` },
+                  url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+  `${APP_URL}/login?ref=${codigo}`)}`
                 { icon:'🐦', name:'Twitter/X', color:'#1DA1F2', bg:'rgba(29,161,242,0.08)', border:'rgba(29,161,242,0.2)',
-                  url:`https://twitter.com/intent/tweet?text=Gana premios reales en ScoreBet sin gastar dinero. Usa mi codigo: ${codigo}&url=score-bet.vercel.app` },
+                  url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+  `Gana premios reales en ScoreBet sin gastar dinero. Usa mi código: ${codigo}`
+)}&url=${encodeURIComponent(`${APP_URL}/login?ref=${codigo}`)}`
                 { icon:'📸', name:'Copiar mensaje', color:'#E1306C', bg:'rgba(225,48,108,0.08)', border:'rgba(225,48,108,0.2)',
                   url:null },
               ].map(r => (
                 <button key={r.name}
-                  onClick={() => r.url ? window.open(r.url, '_blank') : navigator.clipboard.writeText(`Únete a ScoreBet y gana premios reales. Usa mi codigo: ${codigo} 👉 score-bet.vercel.app`)}
+                  onClick={() => r.url ? window.open(r.url, '_blank') : navigator.clipboard.writeText(`Únete a ScoreBet y gana premios reales. Usa mi código: ${codigo} 👉 ${APP_URL}/login?ref=${codigo}`)}
                   style={{padding:'14px', borderRadius:'12px', background:r.bg, border:`1px solid ${r.border}`, color:r.color, fontWeight:600, fontSize:'14px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', transition:'all .2s', fontFamily:'Inter, sans-serif'}}>
                   <span style={{fontSize:'20px'}}>{r.icon}</span>
                   {r.name}
