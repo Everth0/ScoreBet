@@ -9,11 +9,102 @@ import {
   updateProfile,
   sendEmailVerification,
 } from 'firebase/auth'
-import { doc, setDoc, getDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
+import {
+  doc, setDoc, getDoc, updateDoc,
+  increment, serverTimestamp,
+  collection, query, where, getDocs, limit,
+} from 'firebase/firestore'
 import { auth, db, googleProvider } from '@/lib/firebase'
 
+// Generar codigo unico de 8 caracteres
+function generarCodigo(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let codigo = ''
+  for (let i = 0; i < 8; i++) {
+    codigo += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return codigo
+}
+
+// Buscar UID del referidor por su codigoReferido
+async function buscarReferidor(codigo: string): Promise<string | null> {
+  try {
+    const q = query(
+      collection(db, 'users'),
+      where('codigoReferido', '==', codigo.toUpperCase()),
+      limit(1)
+    )
+    const snap = await getDocs(q)
+    if (snap.empty) return null
+    return snap.docs[0].id
+  } catch { return null }
+}
+
+// Crear perfil del usuario en Firestore
+async function crearPerfil(
+  uid: string,
+  nombre: string,
+  email: string,
+  codigoRef: string
+) {
+  const ref  = doc(db, 'users', uid)
+  const snap = await getDoc(ref)
+  if (snap.exists()) return // ya existe, no hacer nada
+
+  // Generar codigo propio unico
+  let codigoPropio = generarCodigo()
+  // Verificar que no exista (muy raro pero por seguridad)
+  const existe = await buscarReferidor(codigoPropio)
+  if (existe) codigoPropio = generarCodigo() + uid.slice(0, 2).toUpperCase()
+
+  let referidoPorUid  = ''
+  let puntosIniciales = 500
+
+  if (codigoRef) {
+    const uidReferidor = await buscarReferidor(codigoRef)
+
+    // Validar: no puede usar su propio codigo
+    if (uidReferidor && uidReferidor !== uid) {
+      referidoPorUid = uidReferidor
+
+      // Verificar que el referidor no haya referido a este usuario antes
+      const refDoc = await getDoc(doc(db, 'users', uidReferidor))
+      if (refDoc.exists()) {
+        const yaReferido = refDoc.data()?.referidos?.includes(uid)
+        if (!yaReferido) {
+          // Dar bonus al referidor
+          await updateDoc(doc(db, 'users', uidReferidor), {
+            puntosActuales:  increment(300),
+            puntosHistorico: increment(300),
+            totalReferidos:  increment(1),
+            referidos:       [...(refDoc.data()?.referidos || []), uid],
+          })
+          // Nuevo usuario recibe bonus extra
+          puntosIniciales = 800 // 500 bienvenida + 300 referido
+        }
+      }
+    }
+  }
+
+  await setDoc(ref, {
+    uid,
+    nombre,
+    email,
+    codigoReferido:  codigoPropio,
+    referidoPor:     referidoPorUid,
+    codigoUsado:     codigoRef || '',
+    puntosActuales:  puntosIniciales,
+    puntosHistorico: puntosIniciales,
+    adsHoy:          0,
+    totalReferidos:  0,
+    totalApuestas:   0,
+    referidos:       [],
+    fechaRegistro:   serverTimestamp(),
+  })
+}
+
 function LoginContent() {
-  const router = useRouter()
+  const router       = useRouter()
   const searchParams = useSearchParams()
 
   const [mode, setMode]         = useState<'login'|'register'>('register')
@@ -21,69 +112,32 @@ function LoginContent() {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [referido, setReferido] = useState('')
+  const [refValido, setRefValido] = useState<boolean|null>(null)
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
 
-  // Leer codigo de referido de la URL automaticamente
+  // Leer ref de URL y autocompletar
   useEffect(() => {
     const ref = searchParams.get('ref')
     if (ref) {
       setReferido(ref.toUpperCase())
       setMode('register')
+      // Validar que el codigo existe
+      buscarReferidor(ref).then(uid => {
+        setRefValido(!!uid)
+      })
     }
   }, [searchParams])
 
-  async function buscarUidPorCodigo(codigo: string): Promise<string | null> {
-    try {
-      // El codigo de referido es los primeros 8 caracteres del UID en mayusculas
-      const { collection, getDocs } = await import('firebase/firestore')
-      const snap = await getDocs(collection(db, 'users'))
-      for (const docSnap of snap.docs) {
-        const uid = docSnap.id
-        if (uid.slice(0, 8).toUpperCase() === codigo.toUpperCase()) {
-          return uid
-        }
-      }
-      return null
-    } catch { return null }
-  }
-
-  async function crearPerfilUsuario(uid: string, nombre: string, email: string, codigoReferido = '') {
-    const ref  = doc(db, 'users', uid)
-    const snap = await getDoc(ref)
-    if (!snap.exists()) {
-      let referidoPorUid = ''
-
-      // Buscar UID del referidor por su codigo
-      if (codigoReferido) {
-        const uidReferidor = await buscarUidPorCodigo(codigoReferido)
-        if (uidReferidor) {
-          referidoPorUid = uidReferidor
-          // Dar bonus al referidor
-          await updateDoc(doc(db, 'users', uidReferidor), {
-            puntosActuales:  increment(300),
-            puntosHistorico: increment(300),
-            totalReferidos:  increment(1),
-          })
-        }
-      }
-
-      // Crear perfil del nuevo usuario
-      await setDoc(ref, {
-        uid,
-        nombre,
-        email,
-        puntosActuales:  codigoReferido && referidoPorUid ? 800 : 500, // 500 bienvenida + 300 bonus referido
-        puntosHistorico: codigoReferido && referidoPorUid ? 800 : 500,
-        adsHoy:          0,
-        referidoPor:     referidoPorUid || '',
-        codigoReferido:  codigoReferido || '',
-        totalReferidos:  0,
-        totalApuestas:   0,
-        fechaRegistro:   serverTimestamp(),
-      })
-    }
-  }
+  // Validar codigo mientras escribe
+  useEffect(() => {
+    if (!referido || referido.length < 8) { setRefValido(null); return }
+    const timer = setTimeout(async () => {
+      const uid = await buscarReferidor(referido)
+      setRefValido(!!uid)
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [referido])
 
   async function handleEmail() {
     setError('')
@@ -91,10 +145,18 @@ function LoginContent() {
     try {
       if (mode === 'register') {
         if (!nombre.trim()) { setError('Por favor ingresa tu nombre'); setLoading(false); return }
+
+        // Validar codigo si fue ingresado
+        if (referido && refValido === false) {
+          setError('El codigo de referido no existe. Dejalo vacio si no tienes uno.')
+          setLoading(false)
+          return
+        }
+
         const cred = await createUserWithEmailAndPassword(auth, email, password)
         await updateProfile(cred.user, { displayName: nombre })
         await sendEmailVerification(cred.user)
-        await crearPerfilUsuario(cred.user.uid, nombre, email, referido)
+        await crearPerfil(cred.user.uid, nombre, email, referido)
       } else {
         await signInWithEmailAndPassword(auth, email, password)
       }
@@ -108,7 +170,7 @@ function LoginContent() {
         'auth/wrong-password':       'Contrasena incorrecta',
         'auth/invalid-credential':   'Email o contrasena incorrectos',
       }
-      setError(msgs[e.code] || 'Ocurrio un error. Intenta de nuevo.')
+      setError(msgs[e.code] || 'Error: ' + e.message)
     }
     setLoading(false)
   }
@@ -118,15 +180,21 @@ function LoginContent() {
     setLoading(true)
     try {
       const cred = await signInWithPopup(auth, googleProvider)
-      await crearPerfilUsuario(cred.user.uid, cred.user.displayName || '', cred.user.email || '', referido)
+      await crearPerfil(
+        cred.user.uid,
+        cred.user.displayName || '',
+        cred.user.email || '',
+        referido
+      )
       router.push('/dashboard')
     } catch {
-      setError('Error al iniciar con Google.')
+      setError('Error al iniciar con Google. Intenta de nuevo.')
     }
     setLoading(false)
   }
 
-  const refDesdeURL = searchParams.get('ref')
+  const refDesdeURL  = searchParams.get('ref')
+  const puntosBonus  = referido && refValido ? 800 : 500
 
   return (
     <main style={{background:'#0A0E1A', minHeight:'100vh', color:'#F9FAFB', fontFamily:'Inter,sans-serif', display:'flex', flexDirection:'column'}}>
@@ -140,11 +208,12 @@ function LoginContent() {
         .btn-submit:hover { background:#00cc6a !important; transform:translateY(-1px); }
       `}</style>
 
+      {/* NAVBAR */}
       <nav style={{height:'64px', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 24px', borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(10,14,26,0.97)'}}>
         <Link href="/" style={{textDecoration:'none', fontFamily:'Rajdhani,sans-serif', fontWeight:700, fontSize:'22px', color:'#F9FAFB', letterSpacing:'1px'}}>
           SCORE<span style={{color:'#00FF88'}}>BET</span>
         </Link>
-        <Link href="/" style={{fontSize:'13px', color:'#9CA3AF', textDecoration:'none'}}>← Volver al inicio</Link>
+        <Link href="/" style={{fontSize:'13px', color:'#9CA3AF', textDecoration:'none'}}>← Volver</Link>
       </nav>
 
       <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:'40px 20px', position:'relative'}}>
@@ -153,21 +222,26 @@ function LoginContent() {
 
         <div style={{position:'relative', width:'100%', maxWidth:'440px', animation:'fadeIn .4s ease'}}>
 
-          {/* Banner referido detectado */}
+          {/* Banner referido detectado desde URL */}
           {refDesdeURL && (
             <div style={{marginBottom:'16px', padding:'14px 18px', borderRadius:'12px', background:'rgba(0,255,136,0.08)', border:'1px solid rgba(0,255,136,0.25)', display:'flex', alignItems:'center', gap:'12px'}}>
               <span style={{fontSize:'24px'}}>🎁</span>
               <div>
-                <div style={{fontSize:'14px', fontWeight:700, color:'#00FF88', marginBottom:'2px'}}>Invitacion detectada!</div>
-                <div style={{fontSize:'12px', color:'#9CA3AF'}}>Codigo: <span style={{fontFamily:'JetBrains Mono,monospace', color:'#00FF88', fontWeight:700}}>{refDesdeURL.toUpperCase()}</span> — Recibes +300 pts extra</div>
+                <div style={{fontSize:'14px', fontWeight:700, color:'#00FF88', marginBottom:'2px'}}>Invitacion detectada</div>
+                <div style={{fontSize:'12px', color:'#9CA3AF'}}>
+                  Codigo: <span style={{fontFamily:'JetBrains Mono,monospace', color:'#00FF88', fontWeight:700}}>{refDesdeURL.toUpperCase()}</span>
+                  {refValido === true  && <span style={{color:'#00FF88', marginLeft:'8px'}}>✅ Valido</span>}
+                  {refValido === false && <span style={{color:'#EF4444', marginLeft:'8px'}}>❌ Invalido</span>}
+                </div>
               </div>
             </div>
           )}
 
-          <div style={{background:'#111827', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'20px', padding:'40px 36px', boxShadow:'0 24px 80px rgba(0,0,0,0.4)'}}>
+          <div style={{background:'#111827', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'20px', padding:'36px 32px', boxShadow:'0 24px 80px rgba(0,0,0,0.4)'}}>
 
-            <div style={{textAlign:'center', marginBottom:'28px'}}>
-              <div style={{fontFamily:'Rajdhani,sans-serif', fontWeight:700, fontSize:'28px', letterSpacing:'1px', marginBottom:'8px'}}>
+            {/* Logo */}
+            <div style={{textAlign:'center', marginBottom:'24px'}}>
+              <div style={{fontFamily:'Rajdhani,sans-serif', fontWeight:700, fontSize:'28px', letterSpacing:'1px', marginBottom:'6px'}}>
                 SCORE<span style={{color:'#00FF88'}}>BET</span>
               </div>
               <p style={{fontSize:'14px', color:'#9CA3AF'}}>
@@ -204,6 +278,7 @@ function LoginContent() {
             </div>
 
             <div style={{display:'flex', flexDirection:'column', gap:'14px'}}>
+
               {mode === 'register' && (
                 <div>
                   <label style={{fontSize:'12px', fontWeight:600, color:'#9CA3AF', display:'block', marginBottom:'6px'}}>NOMBRE</label>
@@ -217,7 +292,12 @@ function LoginContent() {
               </div>
 
               <div>
-                <label style={{fontSize:'12px', fontWeight:600, color:'#9CA3AF', display:'block', marginBottom:'6px'}}>CONTRASENA</label>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px'}}>
+                  <label style={{fontSize:'12px', fontWeight:600, color:'#9CA3AF'}}>CONTRASENA</label>
+                  {mode === 'login' && (
+                    <a href="#" style={{fontSize:'12px', color:'#6B7280', textDecoration:'none'}}>Olvidaste tu contrasena?</a>
+                  )}
+                </div>
                 <input className="input-field" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}/>
               </div>
 
@@ -225,18 +305,43 @@ function LoginContent() {
                 <div>
                   <label style={{fontSize:'12px', fontWeight:600, color:'#9CA3AF', display:'block', marginBottom:'6px'}}>
                     CODIGO REFERIDO
-                    {refDesdeURL && <span style={{color:'#00FF88', marginLeft:'8px', fontSize:'11px'}}>✅ Detectado automaticamente</span>}
-                    {!refDesdeURL && <span style={{color:'#4B5563', fontWeight:400, marginLeft:'4px'}}>(opcional)</span>}
+                    {refDesdeURL
+                      ? <span style={{color:'#00FF88', marginLeft:'8px', fontSize:'11px', fontWeight:400}}>✅ Autocompletado</span>
+                      : <span style={{color:'#4B5563', fontWeight:400, marginLeft:'4px'}}>(opcional)</span>
+                    }
                   </label>
-                  <input className="input-field" type="text" placeholder="Ej: ABC12345"
-                    value={referido}
-                    onChange={e => setReferido(e.target.value.toUpperCase())}
-                    style={{background: referido ? 'rgba(0,255,136,0.05)' : '#0F1520', borderColor: referido ? 'rgba(0,255,136,0.3)' : '#374151'}}
-                  />
-                  {referido && (
-                    <p style={{fontSize:'11px', color:'#00FF88', marginTop:'6px'}}>
-                      ⚡ Tu y tu referido reciben +300 puntos extra
-                    </p>
+                  <div style={{position:'relative'}}>
+                    <input
+                      className="input-field"
+                      type="text"
+                      placeholder="Ej: ABC12345"
+                      value={referido}
+                      onChange={e => setReferido(e.target.value.toUpperCase().slice(0,8))}
+                      style={{
+                        fontFamily:'JetBrains Mono,monospace',
+                        letterSpacing:'2px',
+                        borderColor: referido.length === 8
+                          ? refValido === true  ? '#00FF88'
+                          : refValido === false ? '#EF4444'
+                          : '#374151'
+                          : '#374151',
+                        paddingRight: '36px',
+                      }}
+                    />
+                    {referido.length === 8 && (
+                      <span style={{position:'absolute', right:'12px', top:'50%', transform:'translateY(-50%)', fontSize:'16px'}}>
+                        {refValido === true ? '✅' : refValido === false ? '❌' : '⏳'}
+                      </span>
+                    )}
+                  </div>
+                  {referido.length === 8 && refValido === false && (
+                    <p style={{fontSize:'11px', color:'#EF4444', marginTop:'5px'}}>❌ Codigo no encontrado. Verifica que sea correcto.</p>
+                  )}
+                  {referido.length === 8 && refValido === true && (
+                    <p style={{fontSize:'11px', color:'#00FF88', marginTop:'5px'}}>✅ Codigo valido — Tu y tu referido reciben +300 pts</p>
+                  )}
+                  {!referido && (
+                    <p style={{fontSize:'11px', color:'#6B7280', marginTop:'5px'}}>Si alguien te invito ingresa su codigo aqui</p>
                   )}
                 </div>
               )}
@@ -258,12 +363,14 @@ function LoginContent() {
                 <span style={{fontSize:'20px'}}>🎁</span>
                 <div>
                   <div style={{fontSize:'13px', fontWeight:600, color:'#00FF88'}}>
-                    {referido ? '800 puntos de bienvenida (500 + 300 bonus)' : '500 puntos de bienvenida'}
+                    {puntosBonus.toLocaleString()} puntos de bienvenida
+                    {referido && refValido && <span style={{fontSize:'11px', color:'#9CA3AF', marginLeft:'6px'}}>(500 + 300 bonus)</span>}
                   </div>
                   <div style={{fontSize:'11px', color:'#6B7280'}}>Se acreditan al crear tu cuenta</div>
                 </div>
               </div>
             )}
+
           </div>
         </div>
       </div>
@@ -277,6 +384,7 @@ export default function Login() {
       <main style={{background:'#0A0E1A', minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', color:'#F9FAFB', fontFamily:'Inter,sans-serif'}}>
         <div style={{textAlign:'center'}}>
           <div style={{fontFamily:'Rajdhani,sans-serif', fontSize:'28px', fontWeight:700}}>SCORE<span style={{color:'#00FF88'}}>BET</span></div>
+          <div style={{fontSize:'14px', color:'#6B7280', marginTop:'8px'}}>Cargando...</div>
         </div>
       </main>
     }>

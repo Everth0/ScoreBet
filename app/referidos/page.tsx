@@ -48,7 +48,7 @@ export default function Referidos() {
     </main>
   )
 
-  const codigo = userData?.uid?.slice(0,8).toUpperCase() || 'XXXXXXXX'
+  const codigo = userData?.codigoReferido || userData?.uid?.slice(0,8).toUpperCase() || 'XXXXXXXX'
   const totalReferidos = userData?.totalReferidos || 0
   const ptsReferidos = totalReferidos * 300
 
