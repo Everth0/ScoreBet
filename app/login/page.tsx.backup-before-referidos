@@ -8,90 +8,134 @@ import {
   signInWithPopup,
   updateProfile,
   sendEmailVerification,
-  User,
 } from 'firebase/auth'
-import { auth, googleProvider } from '@/lib/firebase'
+import {
+  doc, setDoc, getDoc, updateDoc,
+  increment, serverTimestamp,
+  collection, query, where, getDocs, limit,
+} from 'firebase/firestore'
+import { auth, db, googleProvider } from '@/lib/firebase'
 
-type RefValidacion = {
-  codigo: string
-  valido: boolean
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  return 'Error desconocido'
-}
-
-function getAuthErrorCode(error: unknown): string {
-  if (typeof error === 'object' && error !== null && 'code' in error) {
-    const code = (error as { code?: unknown }).code
-    return typeof code === 'string' ? code : ''
+// Generar codigo unico de 8 caracteres
+function generarCodigo(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let codigo = ''
+  for (let i = 0; i < 8; i++) {
+    codigo += chars.charAt(Math.floor(Math.random() * chars.length))
   }
-  return ''
+  return codigo
 }
 
-async function validarReferido(codigo: string): Promise<boolean> {
-  const normalizado = codigo.trim().toUpperCase().slice(0, 8)
-  if (normalizado.length !== 8) return false
-
+// Buscar UID del referidor por su codigoReferido
+async function buscarReferidor(codigo: string): Promise<string | null> {
   try {
-    const res = await fetch(`/api/validar-referido?codigo=${encodeURIComponent(normalizado)}`)
-    const data = (await res.json()) as { valido?: boolean }
-    return Boolean(data.valido)
-  } catch {
-    return false
-  }
+    const q = query(
+      collection(db, 'users'),
+      where('codigoReferido', '==', codigo.toUpperCase()),
+      limit(1)
+    )
+    const snap = await getDocs(q)
+    if (snap.empty) return null
+    return snap.docs[0].id
+  } catch { return null }
 }
 
-async function crearPerfilEnServidor(
-  user: User,
+// Crear perfil del usuario en Firestore
+async function crearPerfil(
+  uid: string,
   nombre: string,
   email: string,
   codigoRef: string
 ) {
-  const token = await user.getIdToken()
-  const res = await fetch('/api/crear-perfil', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ nombre, email, codigoRef }),
-  })
+  const ref  = doc(db, 'users', uid)
+  const snap = await getDoc(ref)
+  if (snap.exists()) return // ya existe, no hacer nada
 
-  if (!res.ok) {
-    const data = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(data.error || 'No se pudo crear el perfil')
+  // Generar codigo propio unico
+  let codigoPropio = generarCodigo()
+  // Verificar que no exista (muy raro pero por seguridad)
+  const existe = await buscarReferidor(codigoPropio)
+  if (existe) codigoPropio = generarCodigo() + uid.slice(0, 2).toUpperCase()
+
+  let referidoPorUid  = ''
+  let puntosIniciales = 500
+
+  if (codigoRef) {
+    const uidReferidor = await buscarReferidor(codigoRef)
+
+    // Validar: no puede usar su propio codigo
+    if (uidReferidor && uidReferidor !== uid) {
+      referidoPorUid = uidReferidor
+
+      // Verificar que el referidor no haya referido a este usuario antes
+      const refDoc = await getDoc(doc(db, 'users', uidReferidor))
+      if (refDoc.exists()) {
+        const yaReferido = refDoc.data()?.referidos?.includes(uid)
+        if (!yaReferido) {
+          // Dar bonus al referidor
+          await updateDoc(doc(db, 'users', uidReferidor), {
+            puntosActuales:  increment(300),
+            puntosHistorico: increment(300),
+            totalReferidos:  increment(1),
+            referidos:       [...(refDoc.data()?.referidos || []), uid],
+          })
+          // Nuevo usuario recibe bonus extra
+          puntosIniciales = 800 // 500 bienvenida + 300 referido
+        }
+      }
+    }
   }
+
+  await setDoc(ref, {
+    uid,
+    nombre,
+    email,
+    codigoReferido:  codigoPropio,
+    referidoPor:     referidoPorUid,
+    codigoUsado:     codigoRef || '',
+    puntosActuales:  puntosIniciales,
+    puntosHistorico: puntosIniciales,
+    adsHoy:          0,
+    totalReferidos:  0,
+    totalApuestas:   0,
+    referidos:       [],
+    fechaRegistro:   serverTimestamp(),
+  })
 }
 
 function LoginContent() {
   const router       = useRouter()
   const searchParams = useSearchParams()
-  const refDesdeURL  = searchParams.get('ref')?.toUpperCase().slice(0, 8) || ''
 
   const [mode, setMode]         = useState<'login'|'register'>('register')
   const [nombre, setNombre]     = useState('')
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [referido, setReferido] = useState(refDesdeURL)
-  const [validacionRef, setValidacionRef] = useState<RefValidacion | null>(null)
+  const [referido, setReferido] = useState('')
+  const [refValido, setRefValido] = useState<boolean|null>(null)
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
 
-  const refValido = referido.length === 8 && validacionRef?.codigo === referido
-    ? validacionRef.valido
-    : null
+  // Leer ref de URL y autocompletar
+  useEffect(() => {
+    const ref = searchParams.get('ref')
+    if (ref) {
+      setReferido(ref.toUpperCase())
+      setMode('register')
+      // Validar que el codigo existe
+      buscarReferidor(ref).then(uid => {
+        setRefValido(!!uid)
+      })
+    }
+  }, [searchParams])
 
   // Validar codigo mientras escribe
   useEffect(() => {
-    if (referido.length !== 8) return
-
+    if (!referido || referido.length < 8) { setRefValido(null); return }
     const timer = setTimeout(async () => {
-      const valido = await validarReferido(referido)
-      setValidacionRef({ codigo: referido, valido })
+      const uid = await buscarReferidor(referido)
+      setRefValido(!!uid)
     }, 600)
-
     return () => clearTimeout(timer)
   }, [referido])
 
@@ -101,12 +145,6 @@ function LoginContent() {
     try {
       if (mode === 'register') {
         if (!nombre.trim()) { setError('Por favor ingresa tu nombre'); setLoading(false); return }
-
-        if (referido && referido.length !== 8) {
-          setError('El codigo de referido debe tener 8 caracteres.')
-          setLoading(false)
-          return
-        }
 
         // Validar codigo si fue ingresado
         if (referido && refValido === false) {
@@ -118,13 +156,12 @@ function LoginContent() {
         const cred = await createUserWithEmailAndPassword(auth, email, password)
         await updateProfile(cred.user, { displayName: nombre })
         await sendEmailVerification(cred.user)
-        await crearPerfilEnServidor(cred.user, nombre, email, referido)
+        await crearPerfil(cred.user.uid, nombre, email, referido)
       } else {
-        const cred = await signInWithEmailAndPassword(auth, email, password)
-        await crearPerfilEnServidor(cred.user, cred.user.displayName || '', cred.user.email || email, '')
+        await signInWithEmailAndPassword(auth, email, password)
       }
       router.push('/dashboard')
-    } catch(e: unknown) {
+    } catch(e: any) {
       const msgs: Record<string, string> = {
         'auth/email-already-in-use': 'Este email ya esta registrado',
         'auth/invalid-email':        'Email invalido',
@@ -133,8 +170,7 @@ function LoginContent() {
         'auth/wrong-password':       'Contrasena incorrecta',
         'auth/invalid-credential':   'Email o contrasena incorrectos',
       }
-      const code = getAuthErrorCode(e)
-      setError(msgs[code] || 'Error: ' + getErrorMessage(e))
+      setError(msgs[e.code] || 'Error: ' + e.message)
     }
     setLoading(false)
   }
@@ -144,8 +180,8 @@ function LoginContent() {
     setLoading(true)
     try {
       const cred = await signInWithPopup(auth, googleProvider)
-      await crearPerfilEnServidor(
-        cred.user,
+      await crearPerfil(
+        cred.user.uid,
         cred.user.displayName || '',
         cred.user.email || '',
         referido
@@ -157,6 +193,7 @@ function LoginContent() {
     setLoading(false)
   }
 
+  const refDesdeURL  = searchParams.get('ref')
   const puntosBonus  = referido && refValido ? 800 : 500
 
   return (
