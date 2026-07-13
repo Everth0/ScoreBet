@@ -57,6 +57,11 @@ async function confirmar() {
     return
   }
 
+  if (selectedBet.live) {
+    setMsg('⚠️ Este partido ya esta en vivo, no se puede apostar')
+    return
+  }
+
   const ganancia = Math.round(pts * selectedBet.oddVal || selectedBet.val || 1)
 
   setConfirmando(true)
@@ -394,13 +399,19 @@ function MatchCard({ m, selectedBet, onSelect }: { m:any, selectedBet:any, onSel
         </div>
       </div>
 
-      {!m.finalizado && (
+      {m.live && (
+        <div style={{textAlign:'center', padding:'10px', fontSize:'12px', color:'#EF4444', fontWeight:600, background:'rgba(239,68,68,0.08)', borderRadius:'8px'}}>
+          🔴 Partido en vivo - Apuestas cerradas
+        </div>
+      )}
+
+      {!m.finalizado && !m.live && (
         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'6px'}}>
           {m.odds.map((o: any) => {
             const isSel = selectedBet?.matchId === m.id && selectedBet?.oddLabel === o.label
             return (
               <button key={o.label} className="odd-btn"
-                onClick={() => onSelect(isSel ? null : {matchId:m.id, home:m.home, away:m.away, homeBadge:m.homeBadge, awayBadge:m.awayBadge, oddLabel:o.label, oddVal:o.val})}
+                onClick={() => onSelect(isSel ? null : {matchId:m.id, home:m.home, away:m.away, homeBadge:m.homeBadge, awayBadge:m.awayBadge, oddLabel:o.label, oddVal:o.val, live:m.live})}
                 style={{background: isSel ? 'rgba(0,255,136,0.15)' : '#0F1520', border:`1px solid ${isSel ? '#00FF88' : 'rgba(255,255,255,0.06)'}`, borderRadius:'8px', padding:'10px 4px', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px', cursor:'pointer', transition:'all .15s', width:'100%'}}>
                 <span style={{fontSize:'9px', color: isSel ? '#00FF88' : '#6B7280', fontWeight:600, textTransform:'uppercase'}}>
                   {o.label === '1' ? 'Local' : o.label === 'X' ? 'Empate' : 'Visita'}
