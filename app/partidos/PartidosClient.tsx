@@ -4,6 +4,7 @@ import Navbar from '@/components/Navbar'
 import { useEffect, useState } from 'react'
 import { addDoc, collection, updateDoc, doc, increment, serverTimestamp } from 'firebase/firestore'
 import { db, auth } from '@/lib/firebase'
+import { abrirAnuncio } from '@/lib/directlinks'
 import { onAuthStateChanged } from 'firebase/auth'
 
 export default function PartidosClient({ categorias }: { categorias: any[] }) {
@@ -17,6 +18,7 @@ export default function PartidosClient({ categorias }: { categorias: any[] }) {
   const [msg, setMsg]                 = useState('')
   const [authUser, setAuthUser]       = useState<any>(null)
   const [showBetslip, setShowBetslip] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
   useEffect(() => {
   const unsub = onAuthStateChanged(auth, (user) => {
     setAuthUser(user)
@@ -57,9 +59,13 @@ async function confirmar() {
 
   const ganancia = Math.round(pts * selectedBet.oddVal || selectedBet.val || 1)
 
+  setConfirmando(true)
+  setMsg('📺 Cargando anuncio...')
+  abrirAnuncio()
+  await new Promise(r => setTimeout(r, 5000))
+  setMsg('⏳ Guardando apuesta...')
+
   try {
-    setMsg('⏳ Guardando apuesta...')
-   
     await addDoc(collection(db, 'apuestas'), {
       userId: authUser.uid,
       partidoId: selectedBet.matchId,
@@ -89,6 +95,7 @@ async function confirmar() {
   } catch (e: any) {
     setMsg('Error: ' + e.message)
   }
+  setConfirmando(false)
 }
 
   const BetslipContent = () => (
@@ -162,9 +169,9 @@ async function confirmar() {
             </div>
           )}
 
-          <button onClick={confirmar}
-            style={{width:'100%', padding:'16px', borderRadius:'12px', background:'#00FF88', color:'#0A0E1A', fontWeight:700, fontSize:'16px', border:'none', cursor:'pointer', fontFamily:'Inter, sans-serif', marginBottom:'10px'}}>
-            Confirmar apuesta
+          <button onClick={confirmar} disabled={confirmando}
+            style={{width:'100%', padding:'16px', borderRadius:'12px', background:'#00FF88', color:'#0A0E1A', fontWeight:700, fontSize:'16px', border:'none', cursor: confirmando ? 'not-allowed' : 'pointer', fontFamily:'Inter, sans-serif', marginBottom:'10px', opacity: confirmando ? 0.7 : 1}}>
+            {confirmando ? 'Procesando...' : 'Confirmar apuesta'}
           </button>
           <button onClick={() => { setSelectedBet(null); setBetPoints(''); setMsg(''); setShowBetslip(false) }}
             style={{width:'100%', padding:'12px', borderRadius:'12px', background:'transparent', color:'#6B7280', fontSize:'14px', border:'1px solid #374151', cursor:'pointer', fontFamily:'Inter, sans-serif'}}>
