@@ -9,9 +9,11 @@ import {
   updateProfile,
   sendEmailVerification,
   sendPasswordResetEmail,
+  getAdditionalUserInfo,
   User,
 } from 'firebase/auth'
 import { auth, googleProvider } from '@/lib/firebase'
+import { generarHuellaDispositivo, contarCuentasPorDispositivo, registrarDispositivo } from '@/lib/antifraud'
 
 type RefValidacion = {
   codigo: string
@@ -117,10 +119,19 @@ function LoginContent() {
           return
         }
 
+        const huella = generarHuellaDispositivo()
+        const cuentasExistentes = await contarCuentasPorDispositivo(huella)
+        if (cuentasExistentes >= 3) {
+          setError('Ya se alcanzo el limite de 3 cuentas permitidas desde este dispositivo.')
+          setLoading(false)
+          return
+        }
+
         const cred = await createUserWithEmailAndPassword(auth, email, password)
         await updateProfile(cred.user, { displayName: nombre })
         await sendEmailVerification(cred.user)
         await crearPerfilEnServidor(cred.user, nombre, email, referido)
+        await registrarDispositivo(cred.user.uid, huella)
       } else {
         const cred = await signInWithEmailAndPassword(auth, email, password)
         await crearPerfilEnServidor(cred.user, cred.user.displayName || '', cred.user.email || email, '')
@@ -171,6 +182,20 @@ function LoginContent() {
     setLoading(true)
     try {
       const cred = await signInWithPopup(auth, googleProvider)
+      const esNuevo = getAdditionalUserInfo(cred)?.isNewUser
+
+      if (esNuevo) {
+        const huella = generarHuellaDispositivo()
+        const cuentasExistentes = await contarCuentasPorDispositivo(huella)
+        if (cuentasExistentes >= 3) {
+          setError('Ya se alcanzo el limite de 3 cuentas permitidas desde este dispositivo.')
+          try { await cred.user.delete() } catch {}
+          setLoading(false)
+          return
+        }
+        await registrarDispositivo(cred.user.uid, huella)
+      }
+
       await crearPerfilEnServidor(
         cred.user,
         cred.user.displayName || '',

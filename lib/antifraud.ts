@@ -85,6 +85,32 @@ export async function verificarDispositivo(
 }
 
 // ═══════════════════════════════════════
+// 3b. VERIFICAR/REGISTRAR DISPOSITIVO AL REGISTRARSE
+// ═══════════════════════════════════════
+export async function contarCuentasPorDispositivo(huella: string): Promise<number> {
+  try {
+    const q = query(
+      collection(db, 'dispositivos'),
+      where('huella', '==', huella)
+    )
+    const snap = await getDocs(q)
+    return snap.size
+  } catch {
+    return 0 // si falla no bloqueamos
+  }
+}
+
+export async function registrarDispositivo(userId: string, huella: string) {
+  try {
+    await setDoc(doc(db, 'dispositivos', `${userId}_${huella}`), {
+      userId,
+      huella,
+      ultimaVez: serverTimestamp(),
+    }, { merge: true })
+  } catch {}
+}
+
+// ═══════════════════════════════════════
 // 4. DETECTAR VPN / PROXY
 // ═══════════════════════════════════════
 export async function detectarVPN(): Promise<boolean> {
