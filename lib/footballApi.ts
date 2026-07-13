@@ -157,10 +157,11 @@ export function generarCuotasRealistas(partido: any) {
     empate = 3.20
     visita = cuotaDebil        // 2.00 o 2.10
   } else if (diff >= -5) {
-    // Muy parejo — Argentina vs France
-    local  = cuotaDebil        // 2.00 o 2.10
+    // Muy parejo — pequeña ventaja de local, cuotas distintas entre si
+    const base = [1.90, 1.95, 2.00, 2.05][Math.floor(Math.random() * 4)]
+    local  = base
     empate = 3.10
-    visita = cuotaDebil        // 2.00 o 2.10
+    visita = Math.round((base + 0.20) * 100) / 100
   } else if (diff >= -15) {
     // Visita ligero favorito
     local  = cuotaDebil        // 2.00 o 2.10
