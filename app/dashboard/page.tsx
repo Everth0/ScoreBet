@@ -9,12 +9,6 @@ import Navbar from '@/components/Navbar'
 import Link from 'next/link'
 import { abrirAnuncio } from '@/lib/directlinks'
 
-const matches = [
-  { id:'wc_esp_ksa', league:'FIFA World Cup 2026', home:'Spain',   away:'Saudi Arabia', homeIcon:'🇪🇸', awayIcon:'🇸🇦', time:'12:00', odds:[{label:'1',val:1.15},{label:'X',val:4.50},{label:'2',val:2.00}] },
-  { id:'wc_bel_iri', league:'FIFA World Cup 2026', home:'Belgium', away:'Iran',         homeIcon:'🇧🇪', awayIcon:'🇮🇷', time:'15:00', odds:[{label:'1',val:1.25},{label:'X',val:4.00},{label:'2',val:2.10}] },
-  { id:'wc_uru_cpv', league:'FIFA World Cup 2026', home:'Uruguay', away:'Cape Verde',   homeIcon:'🇺🇾', awayIcon:'🇨🇻', time:'18:00', odds:[{label:'1',val:1.40},{label:'X',val:3.80},{label:'2',val:2.00}] },
-]
-
 const META = 50000
 
 export default function Dashboard() {
@@ -28,6 +22,16 @@ export default function Dashboard() {
   const [betMsg, setBetMsg]           = useState('')
   const [showBetslip, setShowBetslip] = useState(false)
   const [betLoading, setBetLoading]   = useState(false)
+  const [matches, setMatches]         = useState<any[]>([])
+  const [matchesLoading, setMatchesLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/destacados')
+      .then(r => r.json())
+      .then(d => setMatches(d.destacados || []))
+      .catch(() => setMatches([]))
+      .finally(() => setMatchesLoading(false))
+  }, [])
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
@@ -244,6 +248,12 @@ export default function Dashboard() {
               )}
 
               <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+                {matchesLoading && (
+                  <div style={{textAlign:'center', padding:'20px', color:'#6B7280', fontSize:'13px'}}>Cargando partidos...</div>
+                )}
+                {!matchesLoading && matches.length === 0 && (
+                  <div style={{textAlign:'center', padding:'20px', color:'#6B7280', fontSize:'13px'}}>No hay partidos disponibles por ahora.</div>
+                )}
                 {matches.map(m => (
                   <div key={m.id} style={{background:'#111827', border:`1px solid ${selectedBet?.matchId===m.id?'rgba(0,255,136,0.3)':'rgba(255,255,255,0.06)'}`, borderRadius:'14px', padding:'16px'}}>
                     <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px'}}>
@@ -252,17 +262,23 @@ export default function Dashboard() {
                     </div>
                     <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px'}}>
                       <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                        <span style={{fontSize:'20px'}}>{m.homeIcon}</span>
+                        {m.homeBadge
+                          ? <img src={m.homeBadge} alt={m.home} style={{width:'20px', height:'20px', objectFit:'contain'}}/>
+                          : <span style={{fontSize:'20px'}}>⚽</span>
+                        }
                         <span style={{fontSize:'13px', fontWeight:600}}>{m.home}</span>
                       </div>
                       <span style={{fontSize:'11px', color:'#6B7280'}}>vs</span>
                       <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
                         <span style={{fontSize:'13px', fontWeight:600}}>{m.away}</span>
-                        <span style={{fontSize:'20px'}}>{m.awayIcon}</span>
+                        {m.awayBadge
+                          ? <img src={m.awayBadge} alt={m.away} style={{width:'20px', height:'20px', objectFit:'contain'}}/>
+                          : <span style={{fontSize:'20px'}}>⚽</span>
+                        }
                       </div>
                     </div>
                     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'7px'}}>
-                      {m.odds.map(o => {
+                      {m.odds.map((o: any) => {
                         const isSel = selectedBet?.matchId===m.id && selectedBet?.label===o.label
                         return (
                           <button key={o.label} className="odd-btn"
