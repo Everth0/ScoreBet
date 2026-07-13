@@ -8,6 +8,7 @@ import {
   signInWithPopup,
   updateProfile,
   sendEmailVerification,
+  sendPasswordResetEmail,
   User,
 } from 'firebase/auth'
 import { auth, googleProvider } from '@/lib/firebase'
@@ -78,6 +79,7 @@ function LoginContent() {
   const [validacionRef, setValidacionRef] = useState<RefValidacion | null>(null)
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
+  const [resetMsg, setResetMsg] = useState('')
 
   const refValido = referido.length === 8 && validacionRef?.codigo === referido
     ? validacionRef.valido
@@ -135,6 +137,31 @@ function LoginContent() {
       }
       const code = getAuthErrorCode(e)
       setError(msgs[code] || 'Error: ' + getErrorMessage(e))
+    }
+    setLoading(false)
+  }
+
+
+  async function handleResetPassword() {
+    setError('')
+    setResetMsg('')
+    if (!email.trim()) {
+      setError('Escribe tu email arriba primero para poder recuperar tu contrasena')
+      return
+    }
+    setLoading(true)
+    try {
+      await sendPasswordResetEmail(auth, email)
+      setResetMsg('Te enviamos un correo para restablecer tu contrasena. Revisa tu bandeja de entrada (y spam).')
+    } catch (e: unknown) {
+      const code = getAuthErrorCode(e)
+      if (code === 'auth/user-not-found') {
+        setError('No existe una cuenta con ese email')
+      } else if (code === 'auth/invalid-email') {
+        setError('Email invalido')
+      } else {
+        setError('No se pudo enviar el correo: ' + getErrorMessage(e))
+      }
     }
     setLoading(false)
   }
@@ -258,7 +285,7 @@ function LoginContent() {
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px'}}>
                   <label style={{fontSize:'12px', fontWeight:600, color:'#9CA3AF'}}>CONTRASENA</label>
                   {mode === 'login' && (
-                    <a href="#" style={{fontSize:'12px', color:'#6B7280', textDecoration:'none'}}>Olvidaste tu contrasena?</a>
+                    <a href="#" onClick={(e) => { e.preventDefault(); handleResetPassword(); }} style={{fontSize:'12px', color:'#6B7280', textDecoration:'none', cursor:'pointer'}}>Olvidaste tu contrasena?</a>
                   )}
                 </div>
                 <input className="input-field" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}/>
@@ -312,6 +339,12 @@ function LoginContent() {
               {error && (
                 <div style={{background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'8px', padding:'12px 14px', fontSize:'13px', color:'#EF4444'}}>
                   ⚠️ {error}
+                </div>
+              )}
+
+              {resetMsg && (
+                <div style={{background:'rgba(0,255,136,0.1)', border:'1px solid rgba(0,255,136,0.3)', borderRadius:'8px', padding:'12px 14px', fontSize:'13px', color:'#00FF88'}}>
+                  ✅ {resetMsg}
                 </div>
               )}
 
