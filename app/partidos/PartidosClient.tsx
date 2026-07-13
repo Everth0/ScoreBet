@@ -86,6 +86,7 @@ async function confirmar() {
 
     await updateDoc(doc(db, 'users', authUser.uid), {
       puntosActuales: increment(-pts),
+      totalApuestas:  increment(1),
     })
 
     setMsg(`✅ Apuesta guardada! Ganancia posible: ${ganancia}`)

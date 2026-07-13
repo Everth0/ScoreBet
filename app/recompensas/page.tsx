@@ -3,7 +3,7 @@ import Navbar from '@/components/Navbar'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import {
   verificacionCompleta,
@@ -47,7 +47,19 @@ export default function Recompensas() {
       if (!u) { router.push('/login'); return }
       setUser(u)
       const snap = await getDoc(doc(db, 'users', u.uid))
-      if (snap.exists()) setUserData({ uid: u.uid, ...snap.data() })
+      if (snap.exists()) {
+        const data = snap.data()
+        if (!data.fechaRegistro && u.metadata?.creationTime) {
+          const fechaBackfill = Timestamp.fromDate(new Date(u.metadata.creationTime))
+          try {
+            await updateDoc(doc(db, 'users', u.uid), { fechaRegistro: fechaBackfill })
+            data.fechaRegistro = fechaBackfill
+          } catch (e) {
+            console.error('No se pudo rellenar fechaRegistro:', e)
+          }
+        }
+        setUserData({ uid: u.uid, ...data })
+      }
       setLoading(false)
     })
     return () => unsub()
@@ -139,8 +151,11 @@ export default function Recompensas() {
   const pts      = userData?.puntosActuales || 0
   const progreso = Math.min((pts/META)*100, 100)
 
-  const diasCuenta = userData?.fechaRegistro
-    ? Math.floor((Date.now() - userData.fechaRegistro.toMillis()) / 86400000)
+  const fechaRegistroMs = userData?.fechaRegistro?.toMillis?.()
+    ?? (user?.metadata?.creationTime ? new Date(user.metadata.creationTime).getTime() : null)
+
+  const diasCuenta = fechaRegistroMs
+    ? Math.floor((Date.now() - fechaRegistroMs) / 86400000)
     : 0
 
   const requisitos = [
