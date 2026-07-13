@@ -78,7 +78,8 @@ export default function Perfil() {
     : 0
   const META         = 50000
   const progreso     = Math.min((pts / META) * 100, 100)
-  const codigo       = userData?.uid?.slice(0, 8).toUpperCase() || ''
+  const codigo       = userData?.codigoReferido || ''
+  const linkReferido = `https://www.scorebet.space/login?ref=${codigo}`
 
   // Requisitos para canjear
   const requisitos = [
@@ -210,7 +211,7 @@ export default function Perfil() {
               style={{width:'100%', padding:'11px', borderRadius:'10px', background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#8B5CF6', fontWeight:600, fontSize:'13px', cursor:'pointer', marginBottom:'10px', fontFamily:'Inter,sans-serif'}}>
               📋 Copiar codigo
             </button>
-            <button onClick={() => { navigator.clipboard.writeText(`Unete a ScoreBet y gana premios reales gratis! Usa mi codigo: ${codigo} 👉 scorebet.space`); setMsg({tipo:'ok', texto:'Link copiado!'}) }}
+            <button onClick={() => { navigator.clipboard.writeText(`Unete a ScoreBet y gana premios reales gratis! Usa mi codigo: ${codigo} 👉 ${linkReferido}`); setMsg({tipo:'ok', texto:'Link copiado!'}) }}
               style={{width:'100%', padding:'11px', borderRadius:'10px', background:'transparent', border:'1px solid #374151', color:'#9CA3AF', fontWeight:500, fontSize:'13px', cursor:'pointer', fontFamily:'Inter,sans-serif'}}>
               🔗 Copiar link de invitacion
             </button>
