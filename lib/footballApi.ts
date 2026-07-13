@@ -148,7 +148,7 @@ export function generarCuotasRealistas(partido: any) {
     visita = cuotaDebil        // 2.00 o 2.10
   } else if (diff >= 15) {
     // Local favorito — France vs Morocco
-    local  = 1.40
+    local  = 1.30
     empate = 3.60
     visita = cuotaDebil        // 2.00 o 2.10
   } else if (diff >= 5) {
@@ -168,12 +168,17 @@ export function generarCuotasRealistas(partido: any) {
     empate = 3.20
     visita = 1.65
   } else if (diff >= -25) {
-    // Visita favorita
+    // Visita favorito fuerte (mismo nivel que 'diff >= 15' del local)
+    local  = cuotaDebil        // 2.00 o 2.10
+    empate = 3.60
+    visita = 1.30
+  } else if (diff >= -40) {
+    // Visita muy superior (mismo nivel que 'diff >= 25' del local)
     local  = cuotaDebil        // 2.00 o 2.10
     empate = 4.00
     visita = 1.25
   } else {
-    // Visita muy superior
+    // Visita absolutamente superior (mismo nivel que 'diff >= 40' del local)
     local  = cuotaDebil        // 2.00 o 2.10
     empate = 4.50
     visita = 1.15
