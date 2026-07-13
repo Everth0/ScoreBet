@@ -130,7 +130,7 @@ export function generarCuotasRealistas(partido: any) {
   const diff = rankAway - rankHome
 
   // Cuota del debil siempre es 2.00 o 2.10
-  const cuotaDebil = [2.00, 2.10][Math.floor(Math.random() * 2)]
+  const cuotaDebil = [1.95, 2.00, 2.05, 2.10][Math.floor(Math.random() * 4)]
 
   let local: number
   let empate: number
@@ -138,22 +138,22 @@ export function generarCuotasRealistas(partido: any) {
 
   if (diff >= 40) {
     // Local muy superior — España vs Cabo Verde
-    local  = 1.15
+    local  = 1.10
     empate = 4.50
     visita = cuotaDebil        // 2.00 o 2.10
   } else if (diff >= 25) {
     // Local superior — Brazil vs Bolivia
-    local  = 1.25
+    local  = 1.15
     empate = 4.00
     visita = cuotaDebil        // 2.00 o 2.10
   } else if (diff >= 15) {
     // Local favorito — France vs Morocco
-    local  = 1.30
+    local  = 1.20
     empate = 3.60
     visita = cuotaDebil        // 2.00 o 2.10
   } else if (diff >= 5) {
     // Ligera ventaja local
-    local  = 1.65
+    local  = 1.30
     empate = 3.20
     visita = cuotaDebil        // 2.00 o 2.10
   } else if (diff >= -5) {
@@ -164,24 +164,24 @@ export function generarCuotasRealistas(partido: any) {
     visita = Math.round((base + 0.20) * 100) / 100
   } else if (diff >= -15) {
     // Visita ligero favorito
-    local  = cuotaDebil        // 2.00 o 2.10
+    local  = cuotaDebil
     empate = 3.20
-    visita = 1.65
+    visita = 1.30
   } else if (diff >= -25) {
     // Visita favorito fuerte (mismo nivel que 'diff >= 15' del local)
-    local  = cuotaDebil        // 2.00 o 2.10
+    local  = cuotaDebil
     empate = 3.60
-    visita = 1.30
+    visita = 1.20
   } else if (diff >= -40) {
     // Visita muy superior (mismo nivel que 'diff >= 25' del local)
-    local  = cuotaDebil        // 2.00 o 2.10
+    local  = cuotaDebil
     empate = 4.00
-    visita = 1.25
+    visita = 1.15
   } else {
     // Visita absolutamente superior (mismo nivel que 'diff >= 40' del local)
-    local  = cuotaDebil        // 2.00 o 2.10
+    local  = cuotaDebil
     empate = 4.50
-    visita = 1.15
+    visita = 1.10
   }
 
   return [local, empate, visita]
