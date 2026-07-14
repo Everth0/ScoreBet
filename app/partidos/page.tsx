@@ -7,6 +7,7 @@ import {
   COMPS,
   formatearPartidoFD,
 } from '@/lib/footballApi'
+import { getPartidosNBAFormateados } from '@/lib/nbaApi'
 import PartidosClient from './PartidosClient'
 
 export const revalidate = 120
@@ -18,12 +19,14 @@ export default async function Partidos() {
     enVivo,
     resultados,
     mundial,
+    partidosNBA,
   ] = await Promise.all([
     getPartidosHoy(),
     getPartidosSemana(),
     getPartidosEnVivo(),
     getResultados(),
     getPartidosCompeticion(COMPS.mundial),
+    getPartidosNBAFormateados(),
   ])
 
   const formatear = (arr: any[]) =>
@@ -40,6 +43,13 @@ export default async function Partidos() {
   const seleccionesSem  = partidosSemana.filter((p: any) => p.esSeleccion)
 
   const categorias = [
+    {
+      id:      'nba',
+      label:   '🏀 NBA',
+      color:   '#F59E0B',
+      partidos: partidosNBA,
+      badge:   partidosNBA.length,
+    },
     {
       id:      'vivo',
       label:   '🔴 En Vivo',

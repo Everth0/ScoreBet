@@ -407,7 +407,7 @@ function MatchCard({ m, selectedBet, onSelect }: { m:any, selectedBet:any, onSel
       )}
 
       {!m.finalizado && !m.live && (
-        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'6px'}}>
+        <div style={{display:'grid', gridTemplateColumns: m.odds.length === 2 ? '1fr 1fr' : '1fr 1fr 1fr', gap:'6px'}}>
           {m.odds.map((o: any) => {
             const isSel = selectedBet?.matchId === m.id && selectedBet?.oddLabel === o.label
             return (
