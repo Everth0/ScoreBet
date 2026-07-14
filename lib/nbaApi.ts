@@ -25,6 +25,33 @@ export async function getPartidosNBAHoy() {
   return data.data || []
 }
 
+function proximosDiasISO(dias: number) {
+  const fechas: string[] = []
+  for (let i = 0; i < dias; i++) {
+    const d = new Date()
+    d.setDate(d.getDate() + i)
+    fechas.push(d.toISOString().split('T')[0])
+  }
+  return fechas
+}
+
+export async function getPartidosNBAProximos(dias: number = 10) {
+  const fechas = proximosDiasISO(dias)
+  const url = new URL(`${BDL_BASE}/nba/v1/games`)
+  fechas.forEach(f => url.searchParams.append('dates[]', f))
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: BDL_KEY },
+      next: { revalidate: 120 },
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.data || []
+  } catch {
+    return []
+  }
+}
+
 // Cache simple en memoria del record de victorias/derrotas por equipo (dura el ciclo de vida del server)
 let standingsCache: { data: Record<number, { wins: number; losses: number }>; ts: number } | null = null
 
@@ -109,7 +136,10 @@ export async function formatearPartidoNBA(g: any) {
 }
 
 export async function getPartidosNBAFormateados() {
-  const juegos = await getPartidosNBAHoy()
+  const juegos = await getPartidosNBAProximos(10)
   const formateados = await Promise.all(juegos.map(formatearPartidoNBA))
-  return formateados.filter(Boolean)
+  return formateados
+    .filter((p: any) => !p.finalizado)
+    .sort((a: any, b: any) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime())
+    .slice(0, 20)
 }
