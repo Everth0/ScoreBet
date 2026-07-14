@@ -41,25 +41,15 @@ export default async function Partidos() {
   const partidosMundial = formatear(mundial)
   const partidosResult  = formatear(resultados)
 
-  const seleccionesHoy  = partidosHoy.filter((p: any) => p.esSeleccion)
-  const clubesHoy       = partidosHoy.filter((p: any) => !p.esSeleccion)
-  const seleccionesSem  = partidosSemana.filter((p: any) => p.esSeleccion)
+  // Todos los partidos de futbol juntos (selecciones + clubes), sin duplicados
+  const idsVistos = new Set<string>()
+  const partidosFutbol = [...partidosHoy, ...partidosSemana, ...partidosMundial].filter((p: any) => {
+    if (idsVistos.has(p.id)) return false
+    idsVistos.add(p.id)
+    return true
+  }).slice(0, 40)
 
   const categorias = [
-    {
-      id:      'mlb',
-      label:   '⚾ MLB',
-      color:   '#F59E0B',
-      partidos: partidosMLB,
-      badge:   partidosMLB.length,
-    },
-    {
-      id:      'nba',
-      label:   '🏀 NBA',
-      color:   '#F59E0B',
-      partidos: partidosNBA,
-      badge:   partidosNBA.length,
-    },
     {
       id:      'vivo',
       label:   '🔴 En Vivo',
@@ -75,25 +65,25 @@ export default async function Partidos() {
       badge:   partidosHoy.length,
     },
     {
-      id:      'mundial',
-      label:   '🏆 Mundial 2026',
-      color:   '#F59E0B',
-      partidos: [...partidosMundial, ...seleccionesSem].slice(0, 20),
-      badge:   partidosMundial.length,
-    },
-    {
-      id:      'selecciones',
-      label:   '🌍 Selecciones',
-      color:   '#3B82F6',
-      partidos: [...seleccionesHoy, ...seleccionesSem].slice(0, 20),
-      badge:   seleccionesHoy.length + seleccionesSem.length,
-    },
-    {
-      id:      'clubes',
-      label:   '⚽ Clubes',
+      id:      'futbol',
+      label:   '⚽ Futbol',
       color:   '#00FF88',
-      partidos: clubesHoy,
-      badge:   clubesHoy.length,
+      partidos: partidosFutbol,
+      badge:   partidosFutbol.length,
+    },
+    {
+      id:      'nba',
+      label:   '🏀 NBA',
+      color:   '#F59E0B',
+      partidos: partidosNBA,
+      badge:   partidosNBA.length,
+    },
+    {
+      id:      'mlb',
+      label:   '⚾ MLB',
+      color:   '#F59E0B',
+      partidos: partidosMLB,
+      badge:   partidosMLB.length,
     },
     {
       id:      'resultados',
