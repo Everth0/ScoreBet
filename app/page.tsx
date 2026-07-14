@@ -1,5 +1,49 @@
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
+import { initializeApp, getApps, cert } from 'firebase-admin/app'
+import { getFirestore } from 'firebase-admin/firestore'
+
+export const revalidate = 300
+
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
+      projectId:   process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+  })
+}
+
+async function getStatsReales() {
+  try {
+    const db = getFirestore()
+
+    const usersSnap = await db.collection('users').count().get()
+    const totalUsuarios = usersSnap.data().count
+
+    const canjesSnap = await db.collection('canjes').where('estado', '==', 'pagado').get()
+    let totalPagado = 0
+    canjesSnap.forEach(doc => {
+      totalPagado += doc.data().valorUSD || doc.data().montoFinal || 0
+    })
+
+    return { totalUsuarios, totalPagado }
+  } catch (e) {
+    console.error('Error obteniendo stats reales:', e)
+    return { totalUsuarios: 0, totalPagado: 0 }
+  }
+}
+
+function formatearUsuarios(n: number) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace('.0', '')}K+`
+  return `${n}`
+}
+
+function formatearUSD(n: number) {
+  if (n >= 1000) return `$${(n / 1000).toFixed(1).replace('.0', '')}K`
+  return `$${n.toFixed(0)}`
+}
 
 const matches = [
   { league: 'UEFA Champions League', home: 'Man City', away: 'R. Madrid', homeIcon: '🔵', awayIcon: '⚪', score: '2 – 1', time: "67'", live: true, odds: ['1.85','3.40','4.20'] },
@@ -8,7 +52,8 @@ const matches = [
   { league: 'Premier League', home: 'Arsenal', away: 'Chelsea', homeIcon: '🔴', awayIcon: '🔵', score: '1 – 1', time: "88'", live: true, odds: ['2.50','3.20','2.80'] },
 ]
 
-export default function Home() {
+export default async function Home() {
+  const { totalUsuarios, totalPagado } = await getStatsReales()
   return (
     <main style={{background:'#0A0E1A', minHeight:'100vh', color:'#F9FAFB', fontFamily:'Inter, sans-serif'}}>
       <Navbar />
@@ -67,8 +112,8 @@ export default function Home() {
           </div>
           <div style={{display:'flex', gap:'48px', marginTop:'64px', flexWrap:'wrap'}}>
             {[
-              {num:'48K',   label:'Usuarios activos'},
-              {num:'$320K', label:'En premios entregados'},
+              {num:formatearUsuarios(totalUsuarios), label:'Usuarios activos'},
+              {num:formatearUSD(totalPagado),        label:'En premios entregados'},
               {num:'12+',   label:'Deportes disponibles'},
               {num:'$0',    label:'Costo de registro'},
             ].map(s => (
