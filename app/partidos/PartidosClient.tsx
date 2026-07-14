@@ -64,6 +64,10 @@ async function confirmar() {
 
   const ganancia = Math.round(pts * selectedBet.oddVal || selectedBet.val || 1)
 
+  const seleccionLabel =
+    selectedBet.oddLabel === '1' ? `Gana ${selectedBet.home}` :
+    selectedBet.oddLabel === '2' ? `Gana ${selectedBet.away}` : 'Empate'
+
   setConfirmando(true)
   setMsg('📺 Cargando anuncio...')
   abrirAnuncio()
@@ -76,7 +80,7 @@ async function confirmar() {
       partidoId: selectedBet.matchId,
       partido: `${selectedBet.home} vs ${selectedBet.away}`,
       liga: selectedBet.league || 'Liga',
-      seleccion: selectedBet.oddLabel || selectedBet.label || 'N/A',
+      seleccion: `${seleccionLabel} (${selectedBet.oddLabel}) @ ${selectedBet.oddVal}`,
       cuota: selectedBet.oddVal || selectedBet.val || 1,
       puntosApostados: pts,
       gananciasPosibles: ganancia,
