@@ -81,9 +81,11 @@ export async function GET(req: NextRequest) {
         // Dar puntos al usuario
         const userRef = db.collection('users').doc(apuesta.userId)
         batch.update(userRef, {
-          puntosActuales:  require('firebase-admin/firestore').FieldValue.increment(apuesta.gananciasPosibles),
-          puntosHistorico: require('firebase-admin/firestore').FieldValue.increment(apuesta.gananciasPosibles),
-          totalApuestas:   require('firebase-admin/firestore').FieldValue.increment(1),
+          puntosActuales:     require('firebase-admin/firestore').FieldValue.increment(apuesta.gananciasPosibles),
+          puntosHistorico:    require('firebase-admin/firestore').FieldValue.increment(apuesta.gananciasPosibles),
+          totalApuestas:      require('firebase-admin/firestore').FieldValue.increment(1),
+          apuestasGanadas:    require('firebase-admin/firestore').FieldValue.increment(1),
+          apuestasGanadasMes: require('firebase-admin/firestore').FieldValue.increment(1),
         })
         batch.update(apuestaDoc.ref, {
           estado:          'ganada',

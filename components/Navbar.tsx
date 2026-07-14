@@ -11,6 +11,7 @@ const links = [
   { label:'Inicio',          href:'/',                special:false },
   { label:'Partidos',        href:'/partidos',        special:false },
   { label:'Mis Apuestas',    href:'/mis-apuestas',    special:false },
+  { label:'🏆 Ranking',      href:'/ranking',         special:false },
   { label:'Recompensas',     href:'/recompensas',     special:false },
   { label:'Referidos',       href:'/referidos',       special:false },
   { label:'💰 Apuesta Real', href:'/apuestas-reales', special:true  },

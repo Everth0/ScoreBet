@@ -3,6 +3,14 @@
     {
       "path": "/api/reset-diario",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/resolver-apuestas",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/reset-mensual",
+      "schedule": "0 0 1 * *"
     }
   ]
 }
