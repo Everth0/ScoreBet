@@ -9,6 +9,7 @@ import {
 } from '@/lib/footballApi'
 import { getPartidosNBAFormateados } from '@/lib/nbaApi'
 import { getPartidosMLBFormateados } from '@/lib/mlbApi'
+import { getPartidosTenisFormateados } from '@/lib/tennisApi'
 import PartidosClient from './PartidosClient'
 
 export const revalidate = 120
@@ -22,6 +23,7 @@ export default async function Partidos() {
     mundial,
     partidosNBA,
     partidosMLB,
+    partidosTenis,
   ] = await Promise.all([
     getPartidosHoy(),
     getPartidosSemana(),
@@ -30,6 +32,7 @@ export default async function Partidos() {
     getPartidosCompeticion(COMPS.mundial),
     getPartidosNBAFormateados(),
     getPartidosMLBFormateados(),
+    getPartidosTenisFormateados(),
   ])
 
   const formatear = (arr: any[]) =>
@@ -49,20 +52,44 @@ export default async function Partidos() {
     return true
   }).slice(0, 40)
 
+  // Ayuda para saber si un partido de cualquier disciplina es de HOY (zona horaria Bolivia)
+  function esHoyBolivia(utcDate: string) {
+    if (!utcDate) return false
+    const fechaPartido = new Date(utcDate).toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' })
+    const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/La_Paz' })
+    return fechaPartido === hoy
+  }
+
+  // EN VIVO: combina partidos en vivo de TODAS las disciplinas
+  const partidosVivosTodos = [
+    ...partidosVivos,
+    ...partidosNBA.filter((p: any) => p.live),
+    ...partidosMLB.filter((p: any) => p.live),
+    ...partidosTenis.filter((p: any) => p.live),
+  ]
+
+  // HOY: combina partidos de hoy de TODAS las disciplinas (incluye los que ya estan en vivo)
+  const partidosHoyTodos = [
+    ...partidosHoy,
+    ...partidosNBA.filter((p: any) => esHoyBolivia(p.utcDate)),
+    ...partidosMLB.filter((p: any) => esHoyBolivia(p.utcDate)),
+    ...partidosTenis.filter((p: any) => esHoyBolivia(p.utcDate)),
+  ]
+
   const categorias = [
     {
       id:      'vivo',
       label:   '🔴 En Vivo',
       color:   '#EF4444',
-      partidos: partidosVivos,
-      badge:   partidosVivos.length,
+      partidos: partidosVivosTodos,
+      badge:   partidosVivosTodos.length,
     },
     {
       id:      'hoy',
       label:   '📅 Hoy',
       color:   '#F59E0B',
-      partidos: partidosHoy,
-      badge:   partidosHoy.length,
+      partidos: partidosHoyTodos,
+      badge:   partidosHoyTodos.length,
     },
     {
       id:      'futbol',
@@ -84,6 +111,13 @@ export default async function Partidos() {
       color:   '#F59E0B',
       partidos: partidosMLB,
       badge:   partidosMLB.length,
+    },
+    {
+      id:      'tenis',
+      label:   '🎾 Tenis',
+      color:   '#F59E0B',
+      partidos: partidosTenis,
+      badge:   partidosTenis.length,
     },
     {
       id:      'resultados',
