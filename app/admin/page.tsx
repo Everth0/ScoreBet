@@ -5,7 +5,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import {
   collection, getDocs, doc, getDoc,
   updateDoc, query, orderBy, limit,
-  where, serverTimestamp
+  where, serverTimestamp, increment
 } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 
@@ -81,15 +81,19 @@ export default function AdminPanel() {
     setTimeout(() => setMsg(''), 3000)
   }
 
-  async function rechazarCanje(canjeId: string, razon: string) {
+  async function rechazarCanje(canjeId: string, userId: string, puntos: number, razon: string) {
     setProcesando(canjeId)
     try {
+      // Devolver los puntos al usuario ya que el canje no se va a procesar
+      await updateDoc(doc(db, 'users', userId), {
+        puntosActuales: increment(puntos),
+      })
       await updateDoc(doc(db, 'canjes', canjeId), {
         estado:         'rechazado',
         razonRechazo:   razon,
         fechaRechazo:   serverTimestamp(),
       })
-      setMsg('❌ Canje rechazado')
+      setMsg('❌ Canje rechazado y puntos devueltos al usuario')
       await cargarDatos()
     } catch {
       setMsg('Error al rechazar')
@@ -314,7 +318,7 @@ export default function AdminPanel() {
                                 {procesando === c.id ? '⏳' : '✅ Aprobar'}
                               </button>
                               <button
-                                onClick={() => rechazarCanje(c.id, 'Rechazado por administrador')}
+                                onClick={() => rechazarCanje(c.id, c.userId, c.puntos, 'Rechazado por administrador')}
                                 disabled={procesando === c.id}
                                 className="btn btn-red">
                                 ❌ Rechazar
