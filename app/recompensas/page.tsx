@@ -3,7 +3,7 @@ import Navbar from '@/components/Navbar'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp, increment, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import {
   verificacionCompleta,
@@ -41,6 +41,7 @@ export default function Recompensas() {
   const [selectedCrypto, setSelectedCrypto]   = useState<any>(null)
   const [walletAddress, setWalletAddress]     = useState('')
   const [network, setNetwork]                 = useState('TRC20')
+  const [historial, setHistorial]             = useState<any[]>([])
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async u => {
@@ -64,6 +65,19 @@ export default function Recompensas() {
     })
     return () => unsub()
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    const q = query(
+      collection(db, 'canjes'),
+      where('userId', '==', user.uid),
+      orderBy('fechaSolicitud', 'desc')
+    )
+    const unsub = onSnapshot(q, snap => {
+      setHistorial(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    })
+    return () => unsub()
+  }, [user])
 
   async function intentarCanjear(reward: any) {
     if (!user || !userData) return
@@ -123,6 +137,11 @@ export default function Recompensas() {
         estado:        'pendiente',
         huella,
         fechaSolicitud: serverTimestamp(),
+      })
+
+      // Descontar los puntos del usuario al momento de solicitar el canje
+      await updateDoc(doc(db, 'users', user.uid), {
+        puntosActuales: increment(-reward.pts),
       })
 
       setShowCryptoModal(false)
@@ -322,6 +341,38 @@ export default function Recompensas() {
             </div>
           </div>
         ))}
+
+        {/* HISTORIAL DE CANJES */}
+        {historial.length > 0 && (
+          <div style={{marginTop:'40px'}}>
+            <h3 style={{fontFamily:'Rajdhani,sans-serif', fontSize:'20px', fontWeight:700, marginBottom:'16px'}}>
+              📜 Historial de retiros
+            </h3>
+            <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
+              {historial.map(h => {
+                const esPagado = h.estado === 'pagado'
+                const esRechazado = h.estado === 'rechazado'
+                const colorEstado = esPagado ? '#00FF88' : esRechazado ? '#EF4444' : '#F59E0B'
+                const textoEstado = esPagado ? '✅ Pagado' : esRechazado ? '❌ Rechazado' : '⏳ Pendiente'
+                return (
+                  <div key={h.id} style={{background:'#111827', border:'1px solid rgba(255,255,255,0.06)', borderRadius:'12px', padding:'14px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'8px'}}>
+                    <div>
+                      <div style={{fontSize:'14px', fontWeight:600}}>{h.premio}</div>
+                      <div style={{fontSize:'11px', color:'#6B7280', marginTop:'2px'}}>
+                        {h.puntos?.toLocaleString()} pts · ${h.montoFinal ?? h.valorUSD} USD
+                        {h.fechaSolicitud?.toDate && ` · ${h.fechaSolicitud.toDate().toLocaleDateString('es', { day:'2-digit', month:'short', year:'numeric' })}`}
+                      </div>
+                    </div>
+                    <div style={{fontSize:'12px', fontWeight:700, color:colorEstado, background:`${colorEstado}1A`, border:`1px solid ${colorEstado}4D`, borderRadius:'999px', padding:'5px 12px'}}>
+                      {textoEstado}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         <div style={{height:'60px'}}/>
       </div>
 
