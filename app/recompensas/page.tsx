@@ -350,10 +350,10 @@ export default function Recompensas() {
             </h3>
             <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
               {historial.map(h => {
-                const esPagado = h.estado === 'pagado'
+                const esAprobado = h.estado === 'aprobado'
                 const esRechazado = h.estado === 'rechazado'
-                const colorEstado = esPagado ? '#00FF88' : esRechazado ? '#EF4444' : '#F59E0B'
-                const textoEstado = esPagado ? '✅ Pagado' : esRechazado ? '❌ Rechazado' : '⏳ Pendiente'
+                const colorEstado = esAprobado ? '#00FF88' : esRechazado ? '#EF4444' : '#F59E0B'
+                const textoEstado = esAprobado ? '✅ Pagado' : esRechazado ? '❌ Rechazado' : '⏳ Pendiente'
                 return (
                   <div key={h.id} style={{background:'#111827', border:'1px solid rgba(255,255,255,0.06)', borderRadius:'12px', padding:'14px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'8px'}}>
                     <div>
