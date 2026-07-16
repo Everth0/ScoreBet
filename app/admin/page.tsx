@@ -67,10 +67,7 @@ export default function AdminPanel() {
     setProcesando(canjeId)
     try {
       // Descontar puntos al usuario
-      await updateDoc(doc(db, 'users', userId), {
-        puntosActuales: (usuarios.find(u => u.id === userId)?.puntosActuales || 0) - puntos
-      })
-      // Actualizar estado del canje
+      // Los puntos ya se descontaron cuando el usuario solicito el canje, aqui solo se aprueba
       await updateDoc(doc(db, 'canjes', canjeId), {
         estado:         'aprobado',
         fechaAprobado:  serverTimestamp(),
@@ -241,6 +238,7 @@ export default function AdminPanel() {
                     <tr>
                       <th>Usuario</th>
                       <th>Premio</th>
+                      <th>Datos de pago</th>
                       <th>Puntos</th>
                       <th>USD</th>
                       <th>Fecha</th>
@@ -257,6 +255,32 @@ export default function AdminPanel() {
                         </td>
                         <td>
                           <span style={{fontWeight:600}}>{c.premio}</span>
+                        </td>
+                        <td>
+                          <div style={{display:'flex', flexDirection:'column', gap:'4px', minWidth:'180px'}}>
+                            <div style={{display:'flex', alignItems:'center', gap:'6px'}}>
+                              <span style={{fontSize:'11px', color:'#9CA3AF', fontFamily:'JetBrains Mono, monospace'}}>{c.email}</span>
+                              <button
+                                onClick={() => navigator.clipboard.writeText(c.email || '')}
+                                title="Copiar email"
+                                style={{background:'none', border:'none', cursor:'pointer', fontSize:'12px', padding:'2px'}}>
+                                📋
+                              </button>
+                            </div>
+                            {c.tipo === 'crypto' && c.walletAddress && (
+                              <div style={{display:'flex', alignItems:'center', gap:'6px'}}>
+                                <span style={{fontSize:'11px', color:'#00FF88', fontFamily:'JetBrains Mono, monospace', wordBreak:'break-all'}}>
+                                  {c.redCrypto ? `[${c.redCrypto}] ` : ''}{c.walletAddress}
+                                </span>
+                                <button
+                                  onClick={() => navigator.clipboard.writeText(c.walletAddress || '')}
+                                  title="Copiar direccion de wallet"
+                                  style={{background:'none', border:'none', cursor:'pointer', fontSize:'12px', padding:'2px', flexShrink:0}}>
+                                  📋
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td>
                           <span style={{fontFamily:'JetBrains Mono, monospace', color:'#F59E0B', fontWeight:600}}>

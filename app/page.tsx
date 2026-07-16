@@ -22,7 +22,7 @@ async function getStatsReales() {
     const usersSnap = await db.collection('users').count().get()
     const totalUsuarios = usersSnap.data().count
 
-    const canjesSnap = await db.collection('canjes').where('estado', '==', 'pagado').get()
+    const canjesSnap = await db.collection('canjes').where('estado', '==', 'aprobado').get()
     let totalPagado = 0
     canjesSnap.forEach(doc => {
       totalPagado += doc.data().valorUSD || doc.data().montoFinal || 0
