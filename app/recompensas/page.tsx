@@ -70,11 +70,18 @@ export default function Recompensas() {
     if (!user) return
     const q = query(
       collection(db, 'canjes'),
-      where('userId', '==', user.uid),
-      orderBy('fechaSolicitud', 'desc')
+      where('userId', '==', user.uid)
     )
     const unsub = onSnapshot(q, snap => {
-      setHistorial(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      lista.sort((a: any, b: any) => {
+        const ta = a.fechaSolicitud?.toMillis?.() || 0
+        const tb = b.fechaSolicitud?.toMillis?.() || 0
+        return tb - ta
+      })
+      setHistorial(lista)
+    }, (error) => {
+      console.error('Error cargando historial de canjes:', error)
     })
     return () => unsub()
   }, [user])
