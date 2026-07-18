@@ -18,10 +18,19 @@ const HEADERS = { 'X-Auth-Token': TOKEN }
 
 async function getPartidosFinalizados() {
   try {
-    const res  = await fetch(`${BASE}/matches?status=FINISHED&limit=50`, { headers: HEADERS })
+    const hoy = new Date()
+    const hace5dias = new Date()
+    hace5dias.setDate(hoy.getDate() - 5)
+    const dateFrom = hace5dias.toISOString().split('T')[0]
+    const dateTo   = hoy.toISOString().split('T')[0]
+    const res  = await fetch(`${BASE}/matches?status=FINISHED&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=100`, { headers: HEADERS })
     const data = await res.json()
-    return data.matches || []
-  } catch { return [] }
+    if (data.errorCode || !data.matches) {
+      console.log('DEBUG error football-data:', JSON.stringify(data))
+      return []
+    }
+    return data.matches
+  } catch (e) { console.log('DEBUG fetch error:', e); return [] }
 }
 
 function determinarResultado(partido: any): '1' | 'X' | '2' | null {
