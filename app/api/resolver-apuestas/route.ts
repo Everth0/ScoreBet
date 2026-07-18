@@ -79,7 +79,10 @@ export async function GET(req: NextRequest) {
         String(p.id) === String(apuesta.partidoId)
       )
 
-      if (!partido) continue
+      if (!partido) {
+        console.log('DEBUG sin match:', apuesta.liga, '|', apuesta.partido, '| partidoId:', apuesta.partidoId)
+        continue
+      }
 
       const resultadoReal = determinarResultado(partido)
       if (!resultadoReal) continue
