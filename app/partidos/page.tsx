@@ -9,7 +9,6 @@ import {
 } from '@/lib/footballApi'
 import { getPartidosNBAFormateados } from '@/lib/nbaApi'
 import { getPartidosMLBFormateados } from '@/lib/mlbApi'
-import { getPartidosTenisFormateados } from '@/lib/tennisApi'
 import { getPartidosNFLFormateados } from '@/lib/nflApi'
 import PartidosClient from './PartidosClient'
 
@@ -24,7 +23,6 @@ export default async function Partidos() {
     mundial,
     partidosNBA,
     partidosMLB,
-    partidosTenis,
     partidosNFL,
   ] = await Promise.all([
     getPartidosHoy(),
@@ -34,7 +32,6 @@ export default async function Partidos() {
     getPartidosCompeticion(COMPS.mundial),
     getPartidosNBAFormateados(),
     getPartidosMLBFormateados(),
-    getPartidosTenisFormateados(),
     getPartidosNFLFormateados(),
   ])
 
@@ -68,7 +65,6 @@ export default async function Partidos() {
     ...partidosVivos,
     ...partidosNBA.filter((p: any) => p.live),
     ...partidosMLB.filter((p: any) => p.live),
-    ...partidosTenis.filter((p: any) => p.live),
   ]
 
   // HOY: combina partidos de hoy de TODAS las disciplinas (incluye los que ya estan en vivo)
@@ -76,7 +72,6 @@ export default async function Partidos() {
     ...partidosHoy,
     ...partidosNBA.filter((p: any) => esHoyBolivia(p.utcDate)),
     ...partidosMLB.filter((p: any) => esHoyBolivia(p.utcDate)),
-    ...partidosTenis.filter((p: any) => esHoyBolivia(p.utcDate)),
   ]
 
   const categorias = [
@@ -114,13 +109,6 @@ export default async function Partidos() {
       color:   '#F59E0B',
       partidos: partidosMLB,
       badge:   partidosMLB.length,
-    },
-    {
-      id:      'tenis',
-      label:   '🎾 Tenis',
-      color:   '#F59E0B',
-      partidos: partidosTenis,
-      badge:   partidosTenis.length,
     },
     {
       id:      'nfl',
