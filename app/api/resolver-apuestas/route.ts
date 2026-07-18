@@ -47,7 +47,6 @@ async function getFinalizadosFutbol(): Promise<PartidoResuelto[]> {
     const res  = await fetch(`${FD_BASE}/matches?status=FINISHED&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=100`, { headers: FD_HEADERS })
     const data = await res.json()
     if (data.errorCode || !data.matches) {
-      console.log('DEBUG error football-data:', JSON.stringify(data))
       return []
     }
     return data.matches.map((p: any) => ({
@@ -56,7 +55,7 @@ async function getFinalizadosFutbol(): Promise<PartidoResuelto[]> {
       scoreHome: p.score?.fullTime?.home ?? null,
       scoreAway: p.score?.fullTime?.away ?? null,
     }))
-  } catch (e) { console.log('DEBUG fetch error futbol:', e); return [] }
+  } catch { return [] }
 }
 
 // ---------- MLB ----------
@@ -77,7 +76,7 @@ async function getFinalizadosMLB(): Promise<PartidoResuelto[]> {
         scoreHome: g.home_team_data?.runs ?? null,
         scoreAway: g.away_team_data?.runs ?? null,
       }))
-  } catch (e) { console.log('DEBUG fetch error mlb:', e); return [] }
+  } catch { return [] }
 }
 
 // ---------- NBA ----------
@@ -98,7 +97,7 @@ async function getFinalizadosNBA(): Promise<PartidoResuelto[]> {
         scoreHome: g.home_team_score ?? null,
         scoreAway: g.visitor_team_score ?? null,
       }))
-  } catch (e) { console.log('DEBUG fetch error nba:', e); return [] }
+  } catch { return [] }
 }
 
 function determinarResultado(p: PartidoResuelto): '1' | 'X' | '2' | null {
@@ -142,10 +141,7 @@ export async function GET(req: NextRequest) {
 
       const partido = partidos.find((p) => p.id === String(apuesta.partidoId))
 
-      if (!partido) {
-        console.log('DEBUG sin match:', apuesta.liga, '|', apuesta.partido, '| partidoId:', apuesta.partidoId)
-        continue
-      }
+      if (!partido) continue
 
       const resultadoReal = determinarResultado(partido)
       if (!resultadoReal) continue
