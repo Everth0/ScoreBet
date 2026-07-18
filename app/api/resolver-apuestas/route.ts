@@ -19,9 +19,12 @@ const FD_HEADERS = { 'X-Auth-Token': FD_TOKEN }
 const BDL_BASE = 'https://api.balldontlie.io'
 const BDL_KEY  = process.env.BALLDONTLIE_API_KEY || ''
 
+const HIGHLIGHTLY_BASE = 'https://american-football.highlightly.net'
+const HIGHLIGHTLY_KEY  = process.env.HIGHLIGHTLY_NFL_KEY || ''
+
 type PartidoResuelto = {
   id: string
-  tipo: 'futbol' | 'mlb' | 'nba'
+  tipo: 'futbol' | 'mlb' | 'nba' | 'nfl'
   scoreHome: number | null
   scoreAway: number | null
 }
@@ -100,10 +103,37 @@ async function getFinalizadosNBA(): Promise<PartidoResuelto[]> {
   } catch { return [] }
 }
 
+// ---------- NFL ----------
+async function getFinalizadosNFL(): Promise<PartidoResuelto[]> {
+  try {
+    const hoy = new Date()
+    const mes = hoy.getMonth() + 1
+    const temporada = mes >= 3 ? hoy.getFullYear() : hoy.getFullYear() - 1
+    const res = await fetch(`${HIGHLIGHTLY_BASE}/matches?league=NFL&season=${temporada}`, {
+      headers: { 'x-rapidapi-key': HIGHLIGHTLY_KEY },
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    const juegos = data.data || []
+    return juegos
+      .filter((g: any) => g.state?.description === 'Finished')
+      .map((g: any) => {
+        const partes = String(g.state?.score?.current || '').split(' - ').map((s: string) => parseInt(s.trim(), 10))
+        const [scoreHome, scoreAway] = partes.length === 2 && !partes.some(isNaN) ? partes : [null, null]
+        return {
+          id: `nfl_${g.id}`,
+          tipo: 'nfl' as const,
+          scoreHome,
+          scoreAway,
+        }
+      })
+  } catch { return [] }
+}
+
 function determinarResultado(p: PartidoResuelto): '1' | 'X' | '2' | null {
   if (p.scoreHome === null || p.scoreAway === null) return null
   if (p.scoreHome > p.scoreAway) return '1'
-  if (p.scoreHome === p.scoreAway) return p.tipo === 'futbol' ? 'X' : null // MLB/NBA no tienen empate
+  if (p.scoreHome === p.scoreAway) return p.tipo === 'futbol' ? 'X' : null // MLB/NBA/NFL no tienen empate
   return '2'
 }
 
@@ -117,13 +147,14 @@ export async function GET(req: NextRequest) {
   try {
     const db = getFirestore()
 
-    const [futbol, mlb, nba] = await Promise.all([
+    const [futbol, mlb, nba, nfl] = await Promise.all([
       getFinalizadosFutbol(),
       getFinalizadosMLB(),
       getFinalizadosNBA(),
+      getFinalizadosNFL(),
     ])
-    const partidos = [...futbol, ...mlb, ...nba]
-    console.log(`Partidos finalizados: futbol=${futbol.length} mlb=${mlb.length} nba=${nba.length}`)
+    const partidos = [...futbol, ...mlb, ...nba, ...nfl]
+    console.log(`Partidos finalizados: futbol=${futbol.length} mlb=${mlb.length} nba=${nba.length} nfl=${nfl.length}`)
 
     const apuestasSnap = await db
       .collection('apuestas')

@@ -10,6 +10,7 @@ import {
 import { getPartidosNBAFormateados } from '@/lib/nbaApi'
 import { getPartidosMLBFormateados } from '@/lib/mlbApi'
 import { getPartidosTenisFormateados } from '@/lib/tennisApi'
+import { getPartidosNFLFormateados } from '@/lib/nflApi'
 import PartidosClient from './PartidosClient'
 
 export const revalidate = 120
@@ -24,6 +25,7 @@ export default async function Partidos() {
     partidosNBA,
     partidosMLB,
     partidosTenis,
+    partidosNFL,
   ] = await Promise.all([
     getPartidosHoy(),
     getPartidosSemana(),
@@ -33,6 +35,7 @@ export default async function Partidos() {
     getPartidosNBAFormateados(),
     getPartidosMLBFormateados(),
     getPartidosTenisFormateados(),
+    getPartidosNFLFormateados(),
   ])
 
   const formatear = (arr: any[]) =>
@@ -118,6 +121,13 @@ export default async function Partidos() {
       color:   '#F59E0B',
       partidos: partidosTenis,
       badge:   partidosTenis.length,
+    },
+    {
+      id:      'nfl',
+      label:   '🏈 NFL',
+      color:   '#F59E0B',
+      partidos: partidosNFL,
+      badge:   partidosNFL.length,
     },
     {
       id:      'resultados',
