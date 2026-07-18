@@ -35,7 +35,11 @@ function determinarResultado(partido: any): '1' | 'X' | '2' | null {
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const expected = `Bearer ${process.env.CRON_SECRET}`
+  console.log('DEBUG authHeader:', JSON.stringify(authHeader))
+  console.log('DEBUG expected:', JSON.stringify(expected))
+  console.log('DEBUG match:', authHeader === expected)
+  if (authHeader !== expected) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
 
