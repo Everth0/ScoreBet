@@ -39,14 +39,13 @@ function fechasRango(diasAtras: number): string[] {
   return fechas
 }
 
-async function debugPartidoFutbol(id: string) {
+async function checkEstadoPartidoFutbol(id: string): Promise<string | null> {
   try {
     const res = await fetch(`${FD_BASE}/matches/${id}`, { headers: FD_HEADERS })
+    if (!res.ok) return null
     const data = await res.json()
-    console.log(`DEBUG partido ${id}:`, JSON.stringify(data).slice(0, 500))
-  } catch (e) {
-    console.log(`DEBUG partido ${id} ERROR:`, e)
-  }
+    return data.status ?? null
+  } catch { return null }
 }
 
 // ---------- FUTBOL ----------
@@ -166,11 +165,6 @@ export async function GET(req: NextRequest) {
     const partidos = [...futbol, ...mlb, ...nba, ...nfl]
     console.log(`Partidos finalizados: futbol=${futbol.length} mlb=${mlb.length} nba=${nba.length} nfl=${nfl.length}`)
 
-    await debugPartidoFutbol('554940')
-    await debugPartidoFutbol('554941')
-    await debugPartidoFutbol('554942')
-    await debugPartidoFutbol('554948')
-
     const apuestasSnap = await db
       .collection('apuestas')
       .where('estado', '==', 'pendiente')
@@ -180,6 +174,7 @@ export async function GET(req: NextRequest) {
 
     let resueltasGanadas  = 0
     let resueltasPerdidas = 0
+    let marcadasAplazadas = 0
     const batch = db.batch()
 
     for (const apuestaDoc of apuestasSnap.docs) {
@@ -188,7 +183,21 @@ export async function GET(req: NextRequest) {
       const partido = partidos.find((p) => p.id === String(apuesta.partidoId))
 
       if (!partido) {
-        console.log(`SKIP apuesta ${apuestaDoc.id}: no se encontró partido con partidoId=${apuesta.partidoId}`)
+        // Solo consultamos aplazamiento para partidos de futbol (id sin prefijo de deporte)
+        // y que aun no esten marcados como aplazados, para no gastar rate limit de mas.
+        const esFutbol = !String(apuesta.partidoId).match(/^(mlb|nba|nfl)_/)
+        if (esFutbol && !apuesta.partidoAplazado) {
+          const estado = await checkEstadoPartidoFutbol(String(apuesta.partidoId))
+          if (estado === 'POSTPONED' || estado === 'SUSPENDED' || estado === 'CANCELLED') {
+            batch.update(apuestaDoc.ref, { partidoAplazado: true, estadoPartido: estado })
+            marcadasAplazadas++
+            console.log(`APLAZADO apuesta ${apuestaDoc.id}: partido ${apuesta.partidoId} status=${estado}`)
+          } else {
+            console.log(`SKIP apuesta ${apuestaDoc.id}: no se encontró partido con partidoId=${apuesta.partidoId} (status=${estado})`)
+          }
+        } else {
+          console.log(`SKIP apuesta ${apuestaDoc.id}: no se encontró partido con partidoId=${apuesta.partidoId}`)
+        }
         continue
       }
 
@@ -240,6 +249,7 @@ export async function GET(req: NextRequest) {
       ok:               true,
       resueltasGanadas,
       resueltasPerdidas,
+      marcadasAplazadas,
       fecha:            new Date().toISOString(),
     })
   } catch (error: any) {
