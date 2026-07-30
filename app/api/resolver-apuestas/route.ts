@@ -39,6 +39,16 @@ function fechasRango(diasAtras: number): string[] {
   return fechas
 }
 
+async function debugPartidoFutbol(id: string) {
+  try {
+    const res = await fetch(`${FD_BASE}/matches/${id}`, { headers: FD_HEADERS })
+    const data = await res.json()
+    console.log(`DEBUG partido ${id}:`, JSON.stringify(data).slice(0, 500))
+  } catch (e) {
+    console.log(`DEBUG partido ${id} ERROR:`, e)
+  }
+}
+
 // ---------- FUTBOL ----------
 async function getFinalizadosFutbol(): Promise<PartidoResuelto[]> {
   try {
@@ -133,7 +143,7 @@ async function getFinalizadosNFL(): Promise<PartidoResuelto[]> {
 function determinarResultado(p: PartidoResuelto): '1' | 'X' | '2' | null {
   if (p.scoreHome === null || p.scoreAway === null) return null
   if (p.scoreHome > p.scoreAway) return '1'
-  if (p.scoreHome === p.scoreAway) return p.tipo === 'futbol' ? 'X' : null // MLB/NBA/NFL no tienen empate
+  if (p.scoreHome === p.scoreAway) return p.tipo === 'futbol' ? 'X' : null
   return '2'
 }
 
@@ -155,6 +165,11 @@ export async function GET(req: NextRequest) {
     ])
     const partidos = [...futbol, ...mlb, ...nba, ...nfl]
     console.log(`Partidos finalizados: futbol=${futbol.length} mlb=${mlb.length} nba=${nba.length} nfl=${nfl.length}`)
+
+    await debugPartidoFutbol('554940')
+    await debugPartidoFutbol('554941')
+    await debugPartidoFutbol('554942')
+    await debugPartidoFutbol('554948')
 
     const apuestasSnap = await db
       .collection('apuestas')
