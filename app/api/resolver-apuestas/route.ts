@@ -172,13 +172,22 @@ export async function GET(req: NextRequest) {
 
       const partido = partidos.find((p) => p.id === String(apuesta.partidoId))
 
-      if (!partido) continue
+      if (!partido) {
+        console.log(`SKIP apuesta ${apuestaDoc.id}: no se encontró partido con partidoId=${apuesta.partidoId}`)
+        continue
+      }
 
       const resultadoReal = determinarResultado(partido)
-      if (!resultadoReal) continue
+      if (!resultadoReal) {
+        console.log(`SKIP apuesta ${apuestaDoc.id}: resultado nulo para partido ${partido.id} (scoreHome=${partido.scoreHome}, scoreAway=${partido.scoreAway})`)
+        continue
+      }
 
       const seleccionUsuario = apuesta.seleccion?.match(/\(([1X2])\)/)?.[1]
-      if (!seleccionUsuario) continue
+      if (!seleccionUsuario) {
+        console.log(`SKIP apuesta ${apuestaDoc.id}: no se pudo extraer selección de "${apuesta.seleccion}"`)
+        continue
+      }
 
       const gano = seleccionUsuario === resultadoReal
 
