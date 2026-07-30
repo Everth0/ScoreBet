@@ -170,7 +170,7 @@ export default function MisApuestas() {
                       color:      a.estado === 'ganada' ? '#00FF88' : a.estado === 'perdida' ? '#EF4444' : '#F59E0B',
                       border:     `1px solid ${a.estado === 'ganada' ? 'rgba(0,255,136,0.3)' : a.estado === 'perdida' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
                     }}>
-                      {a.estado === 'ganada' ? '✅ Ganada' : a.estado === 'perdida' ? '❌ Perdida' : '⏳ Pendiente'}
+                      {a.estado === 'ganada' ? '✅ Ganada' : a.estado === 'perdida' ? '❌ Perdida' : a.partidoAplazado ? '📅 Aplazado' : '⏳ Pendiente'}
                     </span>
                   </div>
                 </div>
