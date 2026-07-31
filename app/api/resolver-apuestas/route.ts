@@ -22,6 +22,11 @@ const BDL_KEY  = process.env.BALLDONTLIE_API_KEY || ''
 const HIGHLIGHTLY_BASE = 'https://american-football.highlightly.net'
 const HIGHLIGHTLY_KEY  = process.env.HIGHLIGHTLY_NFL_KEY || ''
 
+// Maximo de partidos de futbol NUEVOS a consultar por ejecucion del cron.
+// football-data.org free = 10 llamadas/min. Dejamos margen y lo que no
+// alcance esta corrida se resuelve en la siguiente (cada 6h).
+const MAX_FUTBOL_LOOKUPS_POR_RUN = 8
+
 type PartidoResuelto = {
   id: string
   tipo: 'futbol' | 'mlb' | 'nba' | 'nfl'
@@ -45,7 +50,6 @@ function fechasRango(diasAtras: number): string[] {
   return fechas
 }
 
-// Consulta individual y directa por ID (evita el limite/paginacion de la lista masiva)
 async function getPartidoFutbolIndividual(id: string): Promise<PartidoIndividual> {
   try {
     const res = await fetch(`${FD_BASE}/matches/${id}`, { headers: FD_HEADERS })
@@ -153,7 +157,7 @@ export async function GET(req: NextRequest) {
       getFinalizadosNFL(),
     ])
     const partidosNoFutbol = [...mlb, ...nba, ...nfl]
-    console.log(`Partidos finalizados: mlb=${mlb.length} nba=${nba.length} nfl=${nfl.length} (futbol se consulta individualmente)`)
+    console.log(`Partidos finalizados: mlb=${mlb.length} nba=${nba.length} nfl=${nfl.length}`)
 
     const apuestasSnap = await db
       .collection('apuestas')
@@ -162,58 +166,51 @@ export async function GET(req: NextRequest) {
 
     console.log(`Apuestas pendientes: ${apuestasSnap.size}`)
 
+    // --- Agrupar apuestas de futbol por partido unico, para consultar 1 sola vez por partido ---
+    const apuestasPorPartidoFutbol = new Map<string, typeof apuestasSnap.docs>()
+    const apuestasNoFutbol: typeof apuestasSnap.docs = []
+
+    for (const doc of apuestasSnap.docs) {
+      const pid = String(doc.data().partidoId)
+      const esFutbol = !pid.match(/^(mlb|nba|nfl)_/)
+      if (esFutbol) {
+        const arr = apuestasPorPartidoFutbol.get(pid) || []
+        arr.push(doc)
+        apuestasPorPartidoFutbol.set(pid, arr)
+      } else {
+        apuestasNoFutbol.push(doc)
+      }
+    }
+
+    const idsUnicosFutbol = Array.from(apuestasPorPartidoFutbol.keys())
+    const idsAConsultar = idsUnicosFutbol.slice(0, MAX_FUTBOL_LOOKUPS_POR_RUN)
+    const idsPendientesProximaRonda = idsUnicosFutbol.length - idsAConsultar.length
+
+    console.log(`Partidos de futbol unicos pendientes: ${idsUnicosFutbol.length} | consultando ${idsAConsultar.length} esta corrida | quedan ${idsPendientesProximaRonda} para la proxima`)
+
+    const resultadosFutbol = new Map<string, PartidoIndividual>()
+    for (const id of idsAConsultar) {
+      const info = await getPartidoFutbolIndividual(id)
+      resultadosFutbol.set(id, info)
+    }
+
     let resueltasGanadas  = 0
     let resueltasPerdidas = 0
     let marcadasAplazadas = 0
     const batch = db.batch()
 
-    for (const apuestaDoc of apuestasSnap.docs) {
+    function procesarApuesta(apuestaDoc: any, tipo: PartidoResuelto['tipo'], scoreHome: number | null, scoreAway: number | null) {
       const apuesta = apuestaDoc.data()
-      const partidoId = String(apuesta.partidoId)
-      const esFutbol = !partidoId.match(/^(mlb|nba|nfl)_/)
-
-      let tipo: PartidoResuelto['tipo']
-      let scoreHome: number | null = null
-      let scoreAway: number | null = null
-
-      if (esFutbol) {
-        tipo = 'futbol'
-        const individual = await getPartidoFutbolIndividual(partidoId)
-        if (individual.status === 'POSTPONED' || individual.status === 'SUSPENDED' || individual.status === 'CANCELLED') {
-          if (!apuesta.partidoAplazado) {
-            batch.update(apuestaDoc.ref, { partidoAplazado: true, estadoPartido: individual.status })
-            marcadasAplazadas++
-            console.log(`APLAZADO apuesta ${apuestaDoc.id}: partido ${partidoId} status=${individual.status}`)
-          }
-          continue
-        }
-        if (individual.status !== 'FINISHED') {
-          console.log(`SKIP apuesta ${apuestaDoc.id}: partido ${partidoId} aun no termina (status=${individual.status})`)
-          continue
-        }
-        scoreHome = individual.scoreHome
-        scoreAway = individual.scoreAway
-      } else {
-        const partido = partidosNoFutbol.find((p) => p.id === partidoId)
-        if (!partido) {
-          console.log(`SKIP apuesta ${apuestaDoc.id}: no se encontró partido con partidoId=${partidoId}`)
-          continue
-        }
-        tipo = partido.tipo
-        scoreHome = partido.scoreHome
-        scoreAway = partido.scoreAway
-      }
-
       const resultadoReal = determinarResultado(tipo, scoreHome, scoreAway)
       if (!resultadoReal) {
-        console.log(`SKIP apuesta ${apuestaDoc.id}: resultado nulo para partido ${partidoId} (scoreHome=${scoreHome}, scoreAway=${scoreAway})`)
-        continue
+        console.log(`SKIP apuesta ${apuestaDoc.id}: resultado nulo (scoreHome=${scoreHome}, scoreAway=${scoreAway})`)
+        return
       }
 
       const seleccionUsuario = apuesta.seleccion?.match(/\(([1X2])\)/)?.[1]
       if (!seleccionUsuario) {
         console.log(`SKIP apuesta ${apuestaDoc.id}: no se pudo extraer selección de "${apuesta.seleccion}"`)
-        continue
+        return
       }
 
       const gano = seleccionUsuario === resultadoReal
@@ -246,6 +243,43 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Procesar futbol (usando resultados agrupados por partido)
+    for (const [pid, docs] of apuestasPorPartidoFutbol.entries()) {
+      const info = resultadosFutbol.get(pid)
+      if (!info) {
+        console.log(`ESPERA apuestas de partido ${pid}: se consultara en la proxima corrida`)
+        continue
+      }
+      if (info.status === 'POSTPONED' || info.status === 'SUSPENDED' || info.status === 'CANCELLED') {
+        for (const doc of docs) {
+          if (!doc.data().partidoAplazado) {
+            batch.update(doc.ref, { partidoAplazado: true, estadoPartido: info.status })
+            marcadasAplazadas++
+          }
+        }
+        console.log(`APLAZADO partido ${pid} (status=${info.status}), afecta a ${docs.length} apuesta(s)`)
+        continue
+      }
+      if (info.status !== 'FINISHED') {
+        console.log(`SKIP partido ${pid}: aun no termina (status=${info.status}), afecta a ${docs.length} apuesta(s)`)
+        continue
+      }
+      for (const doc of docs) {
+        procesarApuesta(doc, 'futbol', info.scoreHome, info.scoreAway)
+      }
+    }
+
+    // Procesar mlb/nba/nfl (bulk, sin cambios)
+    for (const doc of apuestasNoFutbol) {
+      const pid = String(doc.data().partidoId)
+      const partido = partidosNoFutbol.find((p) => p.id === pid)
+      if (!partido) {
+        console.log(`SKIP apuesta ${doc.id}: no se encontró partido con partidoId=${pid}`)
+        continue
+      }
+      procesarApuesta(doc, partido.tipo, partido.scoreHome, partido.scoreAway)
+    }
+
     await batch.commit()
 
     return NextResponse.json({
@@ -253,6 +287,8 @@ export async function GET(req: NextRequest) {
       resueltasGanadas,
       resueltasPerdidas,
       marcadasAplazadas,
+      partidosFutbolUnicosPendientes: idsUnicosFutbol.length,
+      partidosFutbolConsultadosAhora: idsAConsultar.length,
       fecha:            new Date().toISOString(),
     })
   } catch (error: any) {
