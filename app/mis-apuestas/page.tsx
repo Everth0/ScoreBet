@@ -15,33 +15,62 @@ export default function MisApuestas() {
   const [loading, setLoading]   = useState(true)
   const [filtro, setFiltro]     = useState('todas')
   const [error, setError]       = useState('')
+  const [cancelando, setCancelando] = useState<string | null>(null)
+
+  const cargarApuestas = async (user: any) => {
+    try {
+      const q = query(
+        collection(db, 'apuestas'),
+        where('userId', '==', user.uid),
+        limit(50)
+      )
+      const snap = await getDocs(q)
+      const bets = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      bets.sort((a: any, b: any) => {
+        const ta = a.fechaApuesta?.toMillis?.() || 0
+        const tb = b.fechaApuesta?.toMillis?.() || 0
+        return tb - ta
+      })
+      setApuestas(bets)
+    } catch (e: any) {
+      setError('Error al cargar apuestas: ' + e.message)
+    }
+    setLoading(false)
+  }
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async user => {
       if (!user) { router.push('/login'); return }
-      try {
-        // Sin orderBy para evitar error de indice
-        const q = query(
-          collection(db, 'apuestas'),
-          where('userId', '==', user.uid),
-          limit(50)
-        )
-        const snap = await getDocs(q)
-        const bets = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        // Ordenar en el cliente
-        bets.sort((a: any, b: any) => {
-          const ta = a.fechaApuesta?.toMillis?.() || 0
-          const tb = b.fechaApuesta?.toMillis?.() || 0
-          return tb - ta
-        })
-        setApuestas(bets)
-      } catch (e: any) {
-        setError('Error al cargar apuestas: ' + e.message)
-      }
-      setLoading(false)
+      await cargarApuestas(user)
     })
     return () => unsub()
   }, [])
+
+  const cancelarApuesta = async (apuestaId: string) => {
+    const user = auth.currentUser
+    if (!user) return
+    setCancelando(apuestaId)
+    try {
+      const token = await user.getIdToken()
+      const res = await fetch('/api/cancelar-apuesta', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ apuestaId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || 'No se pudo cancelar la apuesta')
+      } else {
+        await cargarApuestas(user)
+      }
+    } catch (e: any) {
+      alert('Error al cancelar: ' + e.message)
+    }
+    setCancelando(null)
+  }
 
   const filtradas = filtro === 'todas'
     ? apuestas
@@ -75,14 +104,12 @@ export default function MisApuestas() {
       `}</style>
 
       <div style={{paddingTop:'64px'}}>
-        {/* HEADER */}
         <div style={{background:'#0F1520', borderBottom:'1px solid rgba(255,255,255,0.06)', padding:'32px 24px'}}>
           <div style={{fontSize:'11px', fontWeight:700, letterSpacing:'3px', textTransform:'uppercase', color:'#00FF88', marginBottom:'8px'}}>Historial</div>
           <h1 style={{fontFamily:'Rajdhani, sans-serif', fontSize:'clamp(24px,4vw,40px)', fontWeight:700, marginBottom:'24px'}}>
             Mis <span style={{color:'#00FF88'}}>apuestas</span>
           </h1>
 
-          {/* Stats */}
           <div style={{display:'flex', gap:'10px', flexWrap:'wrap'}}>
             {[
               { label:'Total',      val:stats.total,                           color:'#9CA3AF' },
@@ -100,7 +127,6 @@ export default function MisApuestas() {
           </div>
         </div>
 
-        {/* FILTROS */}
         <div style={{padding:'16px 24px', borderBottom:'1px solid rgba(255,255,255,0.04)', display:'flex', gap:'8px', flexWrap:'wrap'}}>
           {['todas','pendiente','ganada','perdida'].map(f => (
             <button key={f} onClick={() => setFiltro(f)}
@@ -110,14 +136,12 @@ export default function MisApuestas() {
           ))}
         </div>
 
-        {/* ERROR */}
         {error && (
           <div style={{margin:'16px 24px', padding:'12px', borderRadius:'8px', background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', fontSize:'13px', color:'#EF4444'}}>
             {error}
           </div>
         )}
 
-        {/* LISTA */}
         <div style={{padding:'20px 24px', animation:'fadeIn .3s ease'}}>
           {filtradas.length === 0 ? (
             <div style={{textAlign:'center', padding:'60px 20px', background:'#111827', borderRadius:'16px', border:'1px solid rgba(255,255,255,0.06)'}}>
@@ -152,6 +176,14 @@ export default function MisApuestas() {
                         </span>
                       )}
                     </div>
+                    {a.partidoAplazado && a.estado === 'pendiente' && (
+                      <button
+                        onClick={() => cancelarApuesta(a.id)}
+                        disabled={cancelando === a.id}
+                        style={{marginTop:'10px', padding:'6px 14px', borderRadius:'8px', border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)', color:'#EF4444', fontSize:'12px', fontWeight:600, cursor: cancelando === a.id ? 'not-allowed' : 'pointer', fontFamily:'Inter, sans-serif'}}>
+                        {cancelando === a.id ? 'Cancelando...' : `Cancelar y recuperar ${(a.puntosApostados||0).toLocaleString()} pts`}
+                      </button>
+                    )}
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontFamily:'JetBrains Mono, monospace', fontSize:'13px', color:'#9CA3AF', marginBottom:'4px'}}>
@@ -162,15 +194,17 @@ export default function MisApuestas() {
                         ? `+${(a.gananciasPosibles||0).toLocaleString()}`
                         : a.estado === 'perdida'
                           ? `-${(a.puntosApostados||0).toLocaleString()}`
-                          : `~${(a.gananciasPosibles||0).toLocaleString()}`
+                          : a.estado === 'cancelada'
+                            ? '0'
+                            : `~${(a.gananciasPosibles||0).toLocaleString()}`
                       } pts
                     </div>
                     <span style={{display:'inline-block', padding:'4px 12px', borderRadius:'999px', fontSize:'11px', fontWeight:700,
-                      background: a.estado === 'ganada' ? 'rgba(0,255,136,0.12)' : a.estado === 'perdida' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)',
-                      color:      a.estado === 'ganada' ? '#00FF88' : a.estado === 'perdida' ? '#EF4444' : '#F59E0B',
-                      border:     `1px solid ${a.estado === 'ganada' ? 'rgba(0,255,136,0.3)' : a.estado === 'perdida' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                      background: a.estado === 'ganada' ? 'rgba(0,255,136,0.12)' : a.estado === 'perdida' ? 'rgba(239,68,68,0.12)' : a.estado === 'cancelada' ? 'rgba(107,114,128,0.12)' : 'rgba(245,158,11,0.12)',
+                      color:      a.estado === 'ganada' ? '#00FF88' : a.estado === 'perdida' ? '#EF4444' : a.estado === 'cancelada' ? '#9CA3AF' : '#F59E0B',
+                      border:     `1px solid ${a.estado === 'ganada' ? 'rgba(0,255,136,0.3)' : a.estado === 'perdida' ? 'rgba(239,68,68,0.3)' : a.estado === 'cancelada' ? 'rgba(107,114,128,0.3)' : 'rgba(245,158,11,0.3)'}`,
                     }}>
-                      {a.estado === 'ganada' ? '✅ Ganada' : a.estado === 'perdida' ? '❌ Perdida' : a.partidoAplazado ? '📅 Aplazado' : '⏳ Pendiente'}
+                      {a.estado === 'ganada' ? '✅ Ganada' : a.estado === 'perdida' ? '❌ Perdida' : a.estado === 'cancelada' ? '↩️ Cancelada' : a.partidoAplazado ? '📅 Aplazado' : '⏳ Pendiente'}
                     </span>
                   </div>
                 </div>
