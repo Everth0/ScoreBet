@@ -29,6 +29,12 @@ type PartidoResuelto = {
   scoreAway: number | null
 }
 
+type PartidoIndividual = {
+  status: string | null
+  scoreHome: number | null
+  scoreAway: number | null
+}
+
 function fechasRango(diasAtras: number): string[] {
   const fechas: string[] = []
   for (let i = 0; i <= diasAtras; i++) {
@@ -39,35 +45,20 @@ function fechasRango(diasAtras: number): string[] {
   return fechas
 }
 
-async function checkEstadoPartidoFutbol(id: string): Promise<string | null> {
+// Consulta individual y directa por ID (evita el limite/paginacion de la lista masiva)
+async function getPartidoFutbolIndividual(id: string): Promise<PartidoIndividual> {
   try {
     const res = await fetch(`${FD_BASE}/matches/${id}`, { headers: FD_HEADERS })
-    if (!res.ok) return null
+    if (!res.ok) return { status: null, scoreHome: null, scoreAway: null }
     const data = await res.json()
-    return data.status ?? null
-  } catch { return null }
-}
-
-// ---------- FUTBOL ----------
-async function getFinalizadosFutbol(): Promise<PartidoResuelto[]> {
-  try {
-    const hoy = new Date()
-    const hace5dias = new Date()
-    hace5dias.setDate(hoy.getDate() - 5)
-    const dateFrom = hace5dias.toISOString().split('T')[0]
-    const dateTo   = hoy.toISOString().split('T')[0]
-    const res  = await fetch(`${FD_BASE}/matches?status=FINISHED&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=100`, { headers: FD_HEADERS })
-    const data = await res.json()
-    if (data.errorCode || !data.matches) {
-      return []
+    return {
+      status: data.status ?? null,
+      scoreHome: data.score?.fullTime?.home ?? null,
+      scoreAway: data.score?.fullTime?.away ?? null,
     }
-    return data.matches.map((p: any) => ({
-      id: String(p.id),
-      tipo: 'futbol' as const,
-      scoreHome: p.score?.fullTime?.home ?? null,
-      scoreAway: p.score?.fullTime?.away ?? null,
-    }))
-  } catch { return [] }
+  } catch {
+    return { status: null, scoreHome: null, scoreAway: null }
+  }
 }
 
 // ---------- MLB ----------
@@ -139,10 +130,10 @@ async function getFinalizadosNFL(): Promise<PartidoResuelto[]> {
   } catch { return [] }
 }
 
-function determinarResultado(p: PartidoResuelto): '1' | 'X' | '2' | null {
-  if (p.scoreHome === null || p.scoreAway === null) return null
-  if (p.scoreHome > p.scoreAway) return '1'
-  if (p.scoreHome === p.scoreAway) return p.tipo === 'futbol' ? 'X' : null
+function determinarResultado(tipo: PartidoResuelto['tipo'], scoreHome: number | null, scoreAway: number | null): '1' | 'X' | '2' | null {
+  if (scoreHome === null || scoreAway === null) return null
+  if (scoreHome > scoreAway) return '1'
+  if (scoreHome === scoreAway) return tipo === 'futbol' ? 'X' : null
   return '2'
 }
 
@@ -156,14 +147,13 @@ export async function GET(req: NextRequest) {
   try {
     const db = getFirestore()
 
-    const [futbol, mlb, nba, nfl] = await Promise.all([
-      getFinalizadosFutbol(),
+    const [mlb, nba, nfl] = await Promise.all([
       getFinalizadosMLB(),
       getFinalizadosNBA(),
       getFinalizadosNFL(),
     ])
-    const partidos = [...futbol, ...mlb, ...nba, ...nfl]
-    console.log(`Partidos finalizados: futbol=${futbol.length} mlb=${mlb.length} nba=${nba.length} nfl=${nfl.length}`)
+    const partidosNoFutbol = [...mlb, ...nba, ...nfl]
+    console.log(`Partidos finalizados: mlb=${mlb.length} nba=${nba.length} nfl=${nfl.length} (futbol se consulta individualmente)`)
 
     const apuestasSnap = await db
       .collection('apuestas')
@@ -179,31 +169,44 @@ export async function GET(req: NextRequest) {
 
     for (const apuestaDoc of apuestasSnap.docs) {
       const apuesta = apuestaDoc.data()
+      const partidoId = String(apuesta.partidoId)
+      const esFutbol = !partidoId.match(/^(mlb|nba|nfl)_/)
 
-      const partido = partidos.find((p) => p.id === String(apuesta.partidoId))
+      let tipo: PartidoResuelto['tipo']
+      let scoreHome: number | null = null
+      let scoreAway: number | null = null
 
-      if (!partido) {
-        // Solo consultamos aplazamiento para partidos de futbol (id sin prefijo de deporte)
-        // y que aun no esten marcados como aplazados, para no gastar rate limit de mas.
-        const esFutbol = !String(apuesta.partidoId).match(/^(mlb|nba|nfl)_/)
-        if (esFutbol && !apuesta.partidoAplazado) {
-          const estado = await checkEstadoPartidoFutbol(String(apuesta.partidoId))
-          if (estado === 'POSTPONED' || estado === 'SUSPENDED' || estado === 'CANCELLED') {
-            batch.update(apuestaDoc.ref, { partidoAplazado: true, estadoPartido: estado })
+      if (esFutbol) {
+        tipo = 'futbol'
+        const individual = await getPartidoFutbolIndividual(partidoId)
+        if (individual.status === 'POSTPONED' || individual.status === 'SUSPENDED' || individual.status === 'CANCELLED') {
+          if (!apuesta.partidoAplazado) {
+            batch.update(apuestaDoc.ref, { partidoAplazado: true, estadoPartido: individual.status })
             marcadasAplazadas++
-            console.log(`APLAZADO apuesta ${apuestaDoc.id}: partido ${apuesta.partidoId} status=${estado}`)
-          } else {
-            console.log(`SKIP apuesta ${apuestaDoc.id}: no se encontró partido con partidoId=${apuesta.partidoId} (status=${estado})`)
+            console.log(`APLAZADO apuesta ${apuestaDoc.id}: partido ${partidoId} status=${individual.status}`)
           }
-        } else {
-          console.log(`SKIP apuesta ${apuestaDoc.id}: no se encontró partido con partidoId=${apuesta.partidoId}`)
+          continue
         }
-        continue
+        if (individual.status !== 'FINISHED') {
+          console.log(`SKIP apuesta ${apuestaDoc.id}: partido ${partidoId} aun no termina (status=${individual.status})`)
+          continue
+        }
+        scoreHome = individual.scoreHome
+        scoreAway = individual.scoreAway
+      } else {
+        const partido = partidosNoFutbol.find((p) => p.id === partidoId)
+        if (!partido) {
+          console.log(`SKIP apuesta ${apuestaDoc.id}: no se encontró partido con partidoId=${partidoId}`)
+          continue
+        }
+        tipo = partido.tipo
+        scoreHome = partido.scoreHome
+        scoreAway = partido.scoreAway
       }
 
-      const resultadoReal = determinarResultado(partido)
+      const resultadoReal = determinarResultado(tipo, scoreHome, scoreAway)
       if (!resultadoReal) {
-        console.log(`SKIP apuesta ${apuestaDoc.id}: resultado nulo para partido ${partido.id} (scoreHome=${partido.scoreHome}, scoreAway=${partido.scoreAway})`)
+        console.log(`SKIP apuesta ${apuestaDoc.id}: resultado nulo para partido ${partidoId} (scoreHome=${scoreHome}, scoreAway=${scoreAway})`)
         continue
       }
 
