@@ -39,7 +39,7 @@ export default function Referidos() {
 
   // SIEMPRE usar el campo codigoReferido de Firestore
   const codigo         = userData?.codigoReferido || ''
-  const linkReferido   = `https://www.scorebet.space/login?ref=${codigo}`
+  const linkReferido   = `https://www.scorebet.space/?ref=${codigo}`
   const totalReferidos = userData?.totalReferidos || 0
   const ptsReferidos   = totalReferidos * 300
 

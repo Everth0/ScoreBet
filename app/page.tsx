@@ -52,8 +52,10 @@ const matches = [
   { league: 'Premier League', home: 'Arsenal', away: 'Chelsea', homeIcon: '🔴', awayIcon: '🔵', score: '1 – 1', time: "88'", live: true, odds: ['2.50','3.20','2.80'] },
 ]
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
   const { totalUsuarios, totalPagado } = await getStatsReales()
+  const { ref } = await searchParams
+  const loginHref = ref ? `/login?ref=${ref}` : '/login'
   return (
     <main style={{background:'#0A0E1A', minHeight:'100vh', color:'#F9FAFB', fontFamily:'Inter, sans-serif'}}>
       <Navbar />
@@ -103,7 +105,7 @@ export default async function Home() {
             Predice resultados deportivos, gana puntos y canjealos por tarjetas de regalo reales. Sin riesgo, sin deposito, 100% gratis.
           </p>
           <div style={{display:'flex', gap:'16px', flexWrap:'wrap'}}>
-            <Link href="/login" className="btn-green" style={{display:'inline-block', padding:'16px 36px', borderRadius:'10px', background:'#00FF88', color:'#0A0E1A', fontWeight:700, fontSize:'16px', textDecoration:'none', transition:'all .2s'}}>
+            <Link href={loginHref} className="btn-green" style={{display:'inline-block', padding:'16px 36px', borderRadius:'10px', background:'#00FF88', color:'#0A0E1A', fontWeight:700, fontSize:'16px', textDecoration:'none', transition:'all .2s'}}>
               Crear cuenta gratis
             </Link>
             <Link href="/partidos" style={{display:'inline-block', padding:'16px 36px', borderRadius:'10px', border:'1px solid #374151', color:'#F9FAFB', fontWeight:500, fontSize:'16px', textDecoration:'none'}}>
@@ -215,7 +217,7 @@ export default async function Home() {
             Tu primer premio<br/><span style={{color:'#00FF88'}}>esta a un registro</span>
           </h2>
           <p style={{color:'#9CA3AF', fontSize:'17px', marginBottom:'40px'}}>Unete a miles de usuarios que ya ganan premios reales cada semana.</p>
-          <Link href="/login" className="btn-green" style={{display:'inline-block', padding:'18px 48px', borderRadius:'12px', background:'#00FF88', color:'#0A0E1A', fontWeight:700, fontSize:'17px', textDecoration:'none', transition:'all .2s'}}>
+          <Link href={loginHref} className="btn-green" style={{display:'inline-block', padding:'18px 48px', borderRadius:'12px', background:'#00FF88', color:'#0A0E1A', fontWeight:700, fontSize:'17px', textDecoration:'none', transition:'all .2s'}}>
             Comenzar gratis
           </Link>
           <p style={{fontSize:'12px', color:'#4B5563', marginTop:'16px'}}>Sin tarjeta · Sin deposito · 500 puntos de bienvenida</p>
