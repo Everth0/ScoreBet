@@ -69,7 +69,11 @@ async function getPartidoIndividual(tipo: Tipo, idCrudo: string): Promise<Partid
     }
     if (tipo === 'mlb') {
       const res = await fetch(`${BDL_BASE}/mlb/v1/games/${idCrudo}`, { headers: BDL_HEADERS })
-      if (!res.ok) return { status: null, scoreHome: null, scoreAway: null }
+      if (!res.ok) {
+        const cuerpo = await res.text().catch(() => '')
+        console.log(`BDL mlb/${idCrudo} respondio ${res.status}: ${cuerpo.slice(0,200)}`)
+        return { status: null, scoreHome: null, scoreAway: null }
+      }
       const json = await res.json()
       const g = json.data ?? json
       return {
@@ -80,7 +84,11 @@ async function getPartidoIndividual(tipo: Tipo, idCrudo: string): Promise<Partid
     }
     if (tipo === 'nba') {
       const res = await fetch(`${BDL_BASE}/nba/v1/games/${idCrudo}`, { headers: BDL_HEADERS })
-      if (!res.ok) return { status: null, scoreHome: null, scoreAway: null }
+      if (!res.ok) {
+        const cuerpo = await res.text().catch(() => '')
+        console.log(`BDL nba/${idCrudo} respondio ${res.status}: ${cuerpo.slice(0,200)}`)
+        return { status: null, scoreHome: null, scoreAway: null }
+      }
       const json = await res.json()
       const g = json.data ?? json
       return {
